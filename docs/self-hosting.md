@@ -43,12 +43,18 @@ Go to **Event Subscriptions** and enable:
 - `app_mention` — when someone @mentions the bot
 - `message.im` — when someone DMs the bot
 
+### Enable Direct Messages
+
+1. Go to **App Home** (in the sidebar under Features)
+2. Scroll to **Show Tabs** and enable **Messages Tab**
+3. Check **Allow users to send Slash commands and messages from the messages tab**
+
 ### Install to Workspace
 
-1. Go to **Install App** and click **Install to Workspace**
-2. Authorize the app
-3. Save the **Bot User OAuth Token** (starts with `xoxb-`)
-4. Note the **Signing Secret** from **Basic Information**
+1. Go to **Install App** (in the sidebar under Settings — this is its own page, not inside OAuth & Permissions)
+2. Click **Install to Workspace** and authorize the app
+3. Copy the **Bot User OAuth Token** (starts with `xoxb-`)
+4. Go to **Basic Information** (sidebar) and copy the **Signing Secret**
 
 ## 2. Deploy with Docker Compose
 
@@ -80,8 +86,9 @@ The bot connects to Slack via Socket Mode — no public URL or port forwarding n
 1. Go to your Slack workspace
 2. Invite the bot to a channel: `/invite @OpenViktor`
 3. Mention the bot: `@OpenViktor hello!`
-4. The bot should respond in a thread
-5. Check structured JSON logs: `docker compose -f docker/docker-compose.yml logs -f bot`
+4. Check structured JSON logs: `docker compose -f docker/docker-compose.yml logs -f bot`
+5. You should see an `app_mention` event logged with channel, user, and text fields
+6. Send a DM to the bot — you should see a `message_im` event logged
 
 ## Hardware Requirements
 
