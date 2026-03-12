@@ -10,6 +10,20 @@ export interface BotContext {
 	logger: Logger;
 }
 
+async function resolveContext(
+	ctx: BotContext,
+	client: unknown,
+	teamId: string,
+	botToken: string,
+	botUserId: string,
+	slackUserId: string,
+) {
+	const slackClient = client as unknown as SlackClient;
+	const workspace = await resolveWorkspace(ctx.prisma, slackClient, teamId, botToken, botUserId);
+	const member = await resolveMember(ctx.prisma, slackClient, workspace.id, slackUserId);
+	return { workspace, member };
+}
+
 export function registerEventHandlers(app: App, ctx: BotContext): void {
 	app.event("app_mention", async ({ event, say, context, client }) => {
 		const threadTs = event.thread_ts ?? event.ts;
@@ -25,17 +39,12 @@ export function registerEventHandlers(app: App, ctx: BotContext): void {
 				return;
 			}
 
-			const workspace = await resolveWorkspace(
-				ctx.prisma,
-				client as unknown as SlackClient,
+			const { workspace, member } = await resolveContext(
+				ctx,
+				client,
 				teamId,
 				botToken,
 				botUserId,
-			);
-			const member = await resolveMember(
-				ctx.prisma,
-				client as unknown as SlackClient,
-				workspace.id,
 				slackUser,
 			);
 			const userMessage = stripBotMention(rawText, botUserId);
@@ -89,17 +98,12 @@ export function registerEventHandlers(app: App, ctx: BotContext): void {
 				return;
 			}
 
-			const workspace = await resolveWorkspace(
-				ctx.prisma,
-				client as unknown as SlackClient,
+			const { workspace, member } = await resolveContext(
+				ctx,
+				client,
 				teamId,
 				botToken,
 				botUserId,
-			);
-			const member = await resolveMember(
-				ctx.prisma,
-				client as unknown as SlackClient,
-				workspace.id,
 				msg.user,
 			);
 

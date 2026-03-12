@@ -77,7 +77,7 @@ export class AgentRunner {
 					role: "user",
 					content: trigger.userMessage,
 					slackChannel: trigger.slackChannel,
-					slackTs: trigger.slackThreadTs,
+					slackThreadTs: trigger.slackThreadTs,
 				},
 			});
 
@@ -128,17 +128,25 @@ export class AgentRunner {
 			const durationMs = Date.now() - startTime;
 			const errorMessage = error instanceof Error ? error.message : String(error);
 
-			await this.prisma.agentRun.update({
-				where: { id: agentRun.id },
-				data: {
-					status: "FAILED",
-					errorMessage,
-					durationMs,
-					completedAt: new Date(),
-				},
-			});
-
 			this.logger.error({ agentRunId: agentRun.id, err: error }, "Agent run failed");
+
+			try {
+				await this.prisma.agentRun.update({
+					where: { id: agentRun.id },
+					data: {
+						status: "FAILED",
+						errorMessage,
+						durationMs,
+						completedAt: new Date(),
+					},
+				});
+			} catch (updateError) {
+				this.logger.error(
+					{ agentRunId: agentRun.id, err: updateError },
+					"Failed to update agent run status",
+				);
+			}
+
 			throw error;
 		}
 	}

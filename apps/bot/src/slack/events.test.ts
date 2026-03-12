@@ -8,10 +8,11 @@ function makeApp() {
 	};
 }
 
-function makeContext(): BotContext {
-	return {
+function makeContext() {
+	const runMock = vi.fn();
+	const ctx: BotContext = {
 		prisma: {} as never,
-		runner: { run: vi.fn() } as never,
+		runner: { run: runMock } as never,
 		logger: {
 			info: vi.fn(),
 			debug: vi.fn(),
@@ -19,12 +20,13 @@ function makeContext(): BotContext {
 			error: vi.fn(),
 		} as never,
 	};
+	return { ctx, runMock };
 }
 
 describe("registerEventHandlers", () => {
 	it("registers app_mention event handler", () => {
 		const app = makeApp();
-		const ctx = makeContext();
+		const { ctx } = makeContext();
 
 		registerEventHandlers(app as never, ctx);
 
@@ -34,7 +36,7 @@ describe("registerEventHandlers", () => {
 
 	it("registers message event handler", () => {
 		const app = makeApp();
-		const ctx = makeContext();
+		const { ctx } = makeContext();
 
 		registerEventHandlers(app as never, ctx);
 
@@ -44,7 +46,7 @@ describe("registerEventHandlers", () => {
 
 	it("app_mention handler returns early without required context", async () => {
 		const app = makeApp();
-		const ctx = makeContext();
+		const { ctx } = makeContext();
 
 		registerEventHandlers(app as never, ctx);
 
@@ -64,7 +66,7 @@ describe("registerEventHandlers", () => {
 
 	it("message handler ignores non-DM messages", async () => {
 		const app = makeApp();
-		const ctx = makeContext();
+		const { ctx, runMock } = makeContext();
 
 		registerEventHandlers(app as never, ctx);
 
@@ -84,13 +86,12 @@ describe("registerEventHandlers", () => {
 			client: {},
 		});
 
-		// Runner should not be called for non-DM messages
-		expect((ctx.runner as unknown as { run: ReturnType<typeof vi.fn> }).run).not.toHaveBeenCalled();
+		expect(runMock).not.toHaveBeenCalled();
 	});
 
 	it("message handler ignores messages without text", async () => {
 		const app = makeApp();
-		const ctx = makeContext();
+		const { ctx, runMock } = makeContext();
 
 		registerEventHandlers(app as never, ctx);
 
@@ -109,6 +110,6 @@ describe("registerEventHandlers", () => {
 			client: {},
 		});
 
-		expect((ctx.runner as unknown as { run: ReturnType<typeof vi.fn> }).run).not.toHaveBeenCalled();
+		expect(runMock).not.toHaveBeenCalled();
 	});
 });

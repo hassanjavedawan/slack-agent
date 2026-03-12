@@ -55,6 +55,10 @@ export async function resolveMember(
 	});
 }
 
+function escapeRegExp(str: string): string {
+	return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export function stripBotMention(text: string, botUserId: string): string {
-	return text.replace(new RegExp(`<@${botUserId}>\\s*`, "g"), "").trim();
+	return text.replace(new RegExp(`<@${escapeRegExp(botUserId)}>\\s*`, "g"), "").trim();
 }
