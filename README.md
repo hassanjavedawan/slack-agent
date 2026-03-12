@@ -1,16 +1,32 @@
-# OpenViktor
+<p align="center">
+  <img src="docs/assets/banner.svg" alt="OpenViktor — Open-source AI coworker for Slack" width="100%"/>
+</p>
 
-Open-source AI coworker for Slack. Self-hostable alternative to [getviktor.com](https://getviktor.com).
+<p align="center">
+  <a href="https://github.com/zggf-zggf/openviktor/actions/workflows/ci.yml"><img src="https://github.com/zggf-zggf/openviktor/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/zggf-zggf/openviktor?color=6366f1" alt="MIT License"></a>
+  <a href="https://github.com/zggf-zggf/openviktor/issues"><img src="https://img.shields.io/github/issues/zggf-zggf/openviktor?color=8b5cf6" alt="Issues"></a>
+  <a href="https://github.com/zggf-zggf/openviktor/stargazers"><img src="https://img.shields.io/github/stars/zggf-zggf/openviktor?style=flat&color=6366f1" alt="Stars"></a>
+  <img src="https://img.shields.io/badge/runtime-Bun-f9a8d4" alt="Bun">
+  <img src="https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white" alt="TypeScript Strict">
+  <img src="https://img.shields.io/badge/self--hosted-Docker%20Compose-2496ed?logo=docker&logoColor=white" alt="Docker Compose">
+</p>
 
-## What is OpenViktor?
+<p align="center">
+  An autonomous AI agent that lives in your Slack workspace as a team member.<br/>
+  Open-source alternative to <a href="https://getviktor.com">getviktor.com</a> — self-hostable, extensible, MIT-licensed.
+</p>
 
-OpenViktor is an autonomous AI agent that lives in your Slack workspace as a team member. It can:
+---
 
-- **Respond to mentions and DMs** with contextually relevant, LLM-powered responses
-- **Learn over time** by accumulating knowledge from your team's interactions
-- **Execute tasks** using a extensible tool system (native tools, MCP protocol)
-- **Monitor proactively** via scheduled heartbeats and workflow discovery
-- **Integrate** with GitHub, Linear, and other tools your team uses
+## Features
+
+- **Conversational AI** — responds to mentions and DMs with contextually relevant, LLM-powered messages
+- **Persistent Memory** — learns from your team's interactions and accumulates knowledge over time
+- **Tool Execution** — extensible tool system with native tools and MCP protocol support
+- **Proactive Monitoring** — scheduled heartbeats, cron jobs, and workflow discovery
+- **Integrations** — connects to GitHub, Linear, and other tools your team already uses
+- **Self-Hosted** — runs on your infrastructure with Docker Compose, no vendor lock-in
 
 ## Quick Start
 
@@ -21,17 +37,18 @@ OpenViktor is an autonomous AI agent that lives in your Slack workspace as a tea
 - A [Slack app](https://api.slack.com/apps) with Socket Mode enabled
 - An [Anthropic API key](https://console.anthropic.com/)
 
-### Setup
+### One-Command Setup
 
 ```bash
-# Clone the repo
 git clone https://github.com/zggf-zggf/openviktor.git
 cd openviktor
-
-# Run the setup script
 ./scripts/setup.sh
+```
 
-# Or manually:
+<details>
+<summary><strong>Manual setup</strong></summary>
+
+```bash
 bun install
 cp docker/.env.example .env
 # Edit .env with your Slack and Anthropic credentials
@@ -41,22 +58,20 @@ bun run db:migrate
 bun run dev
 ```
 
-### Self-Hosting
+</details>
 
-See [docs/self-hosting.md](docs/self-hosting.md) for detailed self-hosting instructions.
+> For production deployment, see [Self-Hosting Guide](docs/self-hosting.md).
 
 ## Architecture
-
-OpenViktor is a TypeScript monorepo built with Bun and Turborepo:
 
 ```
 openviktor/
 ├── apps/
 │   ├── bot/              # Slack bot + agent runtime
-│   └── web/              # Admin dashboard (Phase 7)
+│   └── web/              # Admin dashboard (Phase 12)
 ├── packages/
 │   ├── db/               # PostgreSQL schema (Prisma)
-│   ├── shared/           # Types, config, logger
+│   ├── shared/           # Types, config, logger, errors
 │   ├── tools/            # Tool registry + executors
 │   └── integrations/     # External service clients
 └── docker/               # Docker Compose for self-hosting
@@ -64,65 +79,60 @@ openviktor/
 
 ### Tech Stack
 
-| Component | Technology |
-|-----------|-----------|
-| Runtime | Bun |
-| Language | TypeScript (strict) |
-| Database | PostgreSQL 16 + Prisma |
-| Cache | Redis 7 (optional) |
-| LLM | Claude (primary), GPT/Gemini (fallback) |
-| Slack | Bolt SDK (Socket Mode) |
-| Build | Turborepo |
-| Linting | Biome |
-| Testing | Vitest + Playwright |
-| Deployment | Docker Compose |
+| Component | Technology | Why |
+|-----------|-----------|-----|
+| Runtime | **Bun** | Fast, native TS, workspace support |
+| Language | **TypeScript** (strict) | Type safety across the stack |
+| Database | **PostgreSQL 16** + Prisma | Self-hostable, no vendor lock-in |
+| Cache | **Redis 7** (optional) | Concurrency control, rate limiting |
+| LLM | **Claude** primary | GPT and Gemini as future fallbacks |
+| Slack | **Bolt SDK** (Socket Mode) | No public URL needed |
+| Build | **Turborepo** | Cached parallel builds |
+| Lint | **Biome** | Fast, opinionated, single tool |
+| Test | **Vitest** + Playwright | Unit/integration + E2E |
+| Deploy | **Docker Compose** | Single command self-hosting |
+
+## Development Phases
+
+Each phase delivers runnable, tested code with documentation.
+
+| Phase | Description | Status |
+|:-----:|-------------|:------:|
+| 0 | Repository foundation, CI, Docker, tooling | :white_check_mark: Done |
+| 1 | Slack gateway — receive and log events | :construction: Next |
+| 2 | LLM provider abstraction + Anthropic | :hourglass: Planned |
+| 3 | Agent runner — stateless execution + DB | :hourglass: Planned |
+| 4a | Markdown-to-mrkdwn conversion | :hourglass: Planned |
+| 4b | Wire Slack → Agent → thread reply | :hourglass: Planned |
+| 5 | Conversation memory — thread context | :hourglass: Planned |
+| 6 | Tool framework — registry, native tools | :hourglass: Planned |
+| 7 | Learning system — knowledge, skill configs | :hourglass: Planned |
+| 8 | Thread orchestrator — lifecycle, concurrency | :hourglass: Planned |
+| 9 | Cron, heartbeat, scheduled monitoring | :hourglass: Planned |
+| 10 | Workflow discovery — per-person profiling | :hourglass: Planned |
+| 11 | MCP protocol + external integrations | :hourglass: Planned |
+| 12 | Admin web dashboard | :hourglass: Planned |
+| 13 | Hardening + production readiness | :hourglass: Planned |
 
 ## Development
 
 ```bash
-# Install dependencies
-bun install
-
-# Start infrastructure
-docker compose -f docker/docker-compose.yml up -d
-
-# Generate Prisma client
-bun run db:generate
-
-# Run migrations
-bun run db:migrate
-
-# Start dev server
-bun run dev
-
-# Run tests
-bun run test
-
-# Lint
-bun run lint
-
-# Type check
-bun run typecheck
+bun install                # Install dependencies
+docker compose -f docker/docker-compose.yml up -d  # Start PostgreSQL + Redis
+bun run db:generate        # Generate Prisma client
+bun run db:migrate         # Run migrations
+bun run dev                # Start dev server
+bun run test               # Run tests
+bun run lint               # Lint with Biome
+bun run typecheck          # TypeScript strict check
 ```
-
-## Development Phases
-
-| Phase | Status | Description |
-|-------|--------|-------------|
-| 0 | Current | Repository foundation, CI, Docker, tooling |
-| 1 | Next | Slack mention → LLM → thread reply |
-| 2 | Planned | Tool gateway + native tools |
-| 3 | Planned | Memory/learning system |
-| 4 | Planned | Thread orchestrator + concurrency |
-| 5 | Planned | Cron, heartbeat, workflow discovery |
-| 6 | Planned | MCP + external integrations |
-| 7 | Planned | Admin web dashboard |
-| 8 | Planned | Hardening + production readiness |
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to contribute.
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+Every implementation change is cross-validated against our [Viktor reverse-engineering docs](docs/viktor-reference/) to ensure behavioral fidelity.
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE) — use it however you want.

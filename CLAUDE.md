@@ -91,7 +91,23 @@ We use Linear for issue tracking (OpenViktor project). Follow this workflow:
 ### 6. Implementation
 - Create branch (use Linear's suggested branch name)
 - Implement according to specification
-- Create pull request and link to Linear issue
+- Write tests alongside code — never leave tests for later
+
+### 7. Pre-Completion Checklist
+
+Before marking a Linear issue as done or creating a PR, you MUST complete ALL of these:
+
+- [ ] **Tests pass**: `bun run test` — all existing and new tests green
+- [ ] **Lint passes**: `bun run lint`
+- [ ] **Typecheck passes**: `bun run typecheck`
+- [ ] **Test coverage**: new code has meaningful test coverage (unit tests co-located, integration tests in `__tests__/`)
+- [ ] **Docs updated**: if the feature is user-facing or changes setup/config:
+  - Update `README.md` (phase table status, new sections if needed)
+  - Update `docs/self-hosting.md` if deployment steps changed
+  - Update `.env.example` if new environment variables were added
+- [ ] **README phase table**: move the completed phase to `:white_check_mark: Done` and the next phase to `:construction: Next`
+- [ ] **Viktor cross-validation**: checked relevant `docs/viktor-reference/` docs
+- [ ] Create pull request and link to Linear issue
 
 ## Viktor Reference Cross-Validation
 
