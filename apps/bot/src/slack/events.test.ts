@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import type { BotContext } from "./events.js";
 import { registerEventHandlers } from "./events.js";
 
 function makeApp() {
@@ -7,21 +8,25 @@ function makeApp() {
 	};
 }
 
-function makeLogger() {
+function makeContext(): BotContext {
 	return {
-		info: vi.fn(),
-		debug: vi.fn(),
-		warn: vi.fn(),
-		error: vi.fn(),
+		prisma: {} as never,
+		runner: { run: vi.fn() } as never,
+		logger: {
+			info: vi.fn(),
+			debug: vi.fn(),
+			warn: vi.fn(),
+			error: vi.fn(),
+		} as never,
 	};
 }
 
 describe("registerEventHandlers", () => {
 	it("registers app_mention event handler", () => {
 		const app = makeApp();
-		const logger = makeLogger();
+		const ctx = makeContext();
 
-		registerEventHandlers(app as never, logger as never);
+		registerEventHandlers(app as never, ctx);
 
 		const calls = app.event.mock.calls.map((c: unknown[]) => c[0]);
 		expect(calls).toContain("app_mention");
@@ -29,97 +34,81 @@ describe("registerEventHandlers", () => {
 
 	it("registers message event handler", () => {
 		const app = makeApp();
-		const logger = makeLogger();
+		const ctx = makeContext();
 
-		registerEventHandlers(app as never, logger as never);
+		registerEventHandlers(app as never, ctx);
 
 		const calls = app.event.mock.calls.map((c: unknown[]) => c[0]);
 		expect(calls).toContain("message");
 	});
 
-	it("app_mention handler logs correct fields", async () => {
+	it("app_mention handler returns early without required context", async () => {
 		const app = makeApp();
-		const logger = makeLogger();
+		const ctx = makeContext();
 
-		registerEventHandlers(app as never, logger as never);
+		registerEventHandlers(app as never, ctx);
 
 		const mentionCall = app.event.mock.calls.find((c: unknown[]) => c[0] === "app_mention");
 		expect(mentionCall).toBeDefined();
-		const handler = mentionCall?.[1] as (args: { event: Record<string, unknown> }) => Promise<void>;
+		const handler = mentionCall?.[1] as (args: Record<string, unknown>) => Promise<void>;
 
-		const event = {
-			channel: "C123",
-			user: "U456",
-			text: "hello bot",
-			ts: "1234567890.000001",
-			event_ts: "1234567890.000001",
-		};
-
-		await handler({ event });
-
-		expect(logger.info).toHaveBeenCalledOnce();
-		const logArg = logger.info.mock.calls[0][0];
-		expect(logArg).toMatchObject({
-			event: "app_mention",
-			channel: "C123",
-			user: "U456",
-			text: "hello bot",
-			ts: "1234567890.000001",
-			eventId: "1234567890.000001",
+		await handler({
+			event: { channel: "C123", user: "U456", text: "hello bot", ts: "123.456" },
+			say: vi.fn(),
+			context: { teamId: undefined, botUserId: undefined, botToken: undefined },
+			client: {},
 		});
-	});
 
-	it("message handler logs DM events (channel_type = im)", async () => {
-		const app = makeApp();
-		const logger = makeLogger();
-
-		registerEventHandlers(app as never, logger as never);
-
-		const messageCall = app.event.mock.calls.find((c: unknown[]) => c[0] === "message");
-		expect(messageCall).toBeDefined();
-		const handler = messageCall?.[1] as (args: { event: Record<string, unknown> }) => Promise<void>;
-
-		const event = {
-			channel: "D789",
-			channel_type: "im",
-			user: "U456",
-			text: "direct message",
-			ts: "1234567890.000002",
-			event_ts: "1234567890.000002",
-		};
-
-		await handler({ event });
-
-		expect(logger.info).toHaveBeenCalledOnce();
-		const logArg = logger.info.mock.calls[0][0];
-		expect(logArg).toMatchObject({
-			event: "message_im",
-			channel: "D789",
-			user: "U456",
-			text: "direct message",
-		});
+		expect(ctx.logger.error).toHaveBeenCalled();
 	});
 
 	it("message handler ignores non-DM messages", async () => {
 		const app = makeApp();
-		const logger = makeLogger();
+		const ctx = makeContext();
 
-		registerEventHandlers(app as never, logger as never);
+		registerEventHandlers(app as never, ctx);
 
 		const messageCall = app.event.mock.calls.find((c: unknown[]) => c[0] === "message");
-		const handler = messageCall?.[1] as (args: { event: Record<string, unknown> }) => Promise<void>;
+		const handler = messageCall?.[1] as (args: Record<string, unknown>) => Promise<void>;
 
-		const event = {
-			channel: "C123",
-			channel_type: "channel",
-			user: "U456",
-			text: "public message",
-			ts: "1234567890.000003",
-			event_ts: "1234567890.000003",
-		};
+		await handler({
+			event: {
+				channel: "C123",
+				channel_type: "channel",
+				user: "U456",
+				text: "public message",
+				ts: "123.456",
+			},
+			say: vi.fn(),
+			context: {},
+			client: {},
+		});
 
-		await handler({ event });
+		// Runner should not be called for non-DM messages
+		expect((ctx.runner as unknown as { run: ReturnType<typeof vi.fn> }).run).not.toHaveBeenCalled();
+	});
 
-		expect(logger.info).not.toHaveBeenCalled();
+	it("message handler ignores messages without text", async () => {
+		const app = makeApp();
+		const ctx = makeContext();
+
+		registerEventHandlers(app as never, ctx);
+
+		const messageCall = app.event.mock.calls.find((c: unknown[]) => c[0] === "message");
+		const handler = messageCall?.[1] as (args: Record<string, unknown>) => Promise<void>;
+
+		await handler({
+			event: {
+				channel: "D789",
+				channel_type: "im",
+				user: "U456",
+				ts: "123.456",
+			},
+			say: vi.fn(),
+			context: {},
+			client: {},
+		});
+
+		expect((ctx.runner as unknown as { run: ReturnType<typeof vi.fn> }).run).not.toHaveBeenCalled();
 	});
 });
