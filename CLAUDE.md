@@ -105,7 +105,6 @@ Before marking a Linear issue as done or creating a PR, you MUST complete ALL of
   - Update `README.md` (phase table status, new sections if needed)
   - Update `docs/self-hosting.md` if deployment steps changed
   - Update `.env.example` if new environment variables were added
-- [ ] **README phase table**: move the completed phase to `:white_check_mark: Done` and the next phase to `:construction: Next`
 - [ ] **Viktor cross-validation**: checked relevant `docs/viktor-reference/` docs
 - [ ] Create pull request and link to Linear issue
 

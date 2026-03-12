@@ -92,28 +92,6 @@ openviktor/
 | Test | **Vitest** + Playwright | Unit/integration + E2E |
 | Deploy | **Docker Compose** | Single command self-hosting |
 
-## Development Phases
-
-Each phase delivers runnable, tested code with documentation.
-
-| Phase | Description | Status |
-|:-----:|-------------|:------:|
-| 0 | Repository foundation, CI, Docker, tooling | :white_check_mark: Done |
-| 1 | Slack gateway — receive and log events | :construction: Next |
-| 2 | LLM provider abstraction + Anthropic | :hourglass: Planned |
-| 3 | Agent runner — stateless execution + DB | :hourglass: Planned |
-| 4a | Markdown-to-mrkdwn conversion | :hourglass: Planned |
-| 4b | Wire Slack → Agent → thread reply | :hourglass: Planned |
-| 5 | Conversation memory — thread context | :hourglass: Planned |
-| 6 | Tool framework — registry, native tools | :hourglass: Planned |
-| 7 | Learning system — knowledge, skill configs | :hourglass: Planned |
-| 8 | Thread orchestrator — lifecycle, concurrency | :hourglass: Planned |
-| 9 | Cron, heartbeat, scheduled monitoring | :hourglass: Planned |
-| 10 | Workflow discovery — per-person profiling | :hourglass: Planned |
-| 11 | MCP protocol + external integrations | :hourglass: Planned |
-| 12 | Admin web dashboard | :hourglass: Planned |
-| 13 | Hardening + production readiness | :hourglass: Planned |
-
 ## Development
 
 ```bash
