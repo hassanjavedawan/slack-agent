@@ -1,0 +1,24 @@
+{
+	"name": "@openviktor/bot",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"main": "src/index.ts",
+	"scripts": {
+		"dev": "bun --watch src/index.ts",
+		"build": "tsc",
+		"start": "bun src/index.ts",
+		"typecheck": "tsc --noEmit",
+		"test": "vitest run",
+		"test:coverage": "vitest run --coverage",
+		"clean": "rm -rf dist"
+	},
+	"dependencies": {
+		"@openviktor/db": "workspace:*",
+		"@openviktor/shared": "workspace:*"
+	},
+	"devDependencies": {
+		"vitest": "^3.0.0",
+		"typescript": "^5.8.0"
+	}
+}

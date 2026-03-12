@@ -1,0 +1,13 @@
+{
+	"name": "@openviktor/web",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "echo 'Web dashboard coming in Phase 7'",
+		"build": "echo 'Web dashboard coming in Phase 7'",
+		"typecheck": "echo 'Web dashboard coming in Phase 7'",
+		"test": "echo 'No tests yet'",
+		"clean": "rm -rf dist"
+	}
+}

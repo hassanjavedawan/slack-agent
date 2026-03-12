@@ -1,0 +1,233 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ─── Workspace & Identity ───────────────────────────────
+
+model Workspace {
+  id             String   @id @default(cuid())
+  slackTeamId    String   @unique @map("slack_team_id")
+  slackTeamName  String   @map("slack_team_name")
+  slackBotToken  String   @map("slack_bot_token")
+  slackBotUserId String   @map("slack_bot_user_id")
+  settings       Json     @default("{}")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  members   Member[]
+  agentRuns AgentRun[]
+  cronJobs  CronJob[]
+  learnings Learning[]
+  skills    Skill[]
+  threads   Thread[]
+
+  @@map("workspaces")
+}
+
+model Member {
+  id          String   @id @default(cuid())
+  workspaceId String   @map("workspace_id")
+  slackUserId String   @map("slack_user_id")
+  displayName String?  @map("display_name")
+  profile     Json     @default("{}")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  workspace Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  agentRuns AgentRun[]
+
+  @@unique([workspaceId, slackUserId])
+  @@map("members")
+}
+
+// ─── Agent Execution ────────────────────────────────────
+
+model AgentRun {
+  id           String      @id @default(cuid())
+  workspaceId  String      @map("workspace_id")
+  threadId     String?     @map("thread_id")
+  triggeredBy  String?     @map("triggered_by")
+  triggerType  TriggerType @map("trigger_type")
+  status       RunStatus   @default(QUEUED)
+  model        String      @default("claude-sonnet")
+  systemPrompt String?     @map("system_prompt")
+  inputTokens  Int         @default(0) @map("input_tokens")
+  outputTokens Int         @default(0) @map("output_tokens")
+  costCents    Float       @default(0) @map("cost_cents")
+  durationMs   Int?        @map("duration_ms")
+  errorMessage String?     @map("error_message")
+  metadata     Json        @default("{}")
+  startedAt    DateTime?   @map("started_at")
+  completedAt  DateTime?   @map("completed_at")
+  createdAt    DateTime    @default(now()) @map("created_at")
+
+  workspace Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  member    Member?    @relation(fields: [triggeredBy], references: [id])
+  thread    Thread?    @relation(fields: [threadId], references: [id])
+  messages  Message[]
+  toolCalls ToolCall[]
+
+  @@index([workspaceId, createdAt])
+  @@index([status])
+  @@map("agent_runs")
+}
+
+enum TriggerType {
+  MENTION
+  DM
+  CRON
+  HEARTBEAT
+  DISCOVERY
+  MANUAL
+}
+
+enum RunStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model Message {
+  id           String   @id @default(cuid())
+  agentRunId   String   @map("agent_run_id")
+  role         String
+  content      String
+  slackTs      String?  @map("slack_ts")
+  slackChannel String?  @map("slack_channel")
+  tokenCount   Int      @default(0) @map("token_count")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  agentRun AgentRun @relation(fields: [agentRunId], references: [id], onDelete: Cascade)
+
+  @@index([agentRunId, createdAt])
+  @@map("messages")
+}
+
+// ─── Tool System ────────────────────────────────────────
+
+model ToolCall {
+  id           String    @id @default(cuid())
+  agentRunId   String    @map("agent_run_id")
+  toolName     String    @map("tool_name")
+  toolType     ToolType  @map("tool_type")
+  input        Json
+  output       Json?
+  status       RunStatus @default(RUNNING)
+  durationMs   Int?      @map("duration_ms")
+  errorMessage String?   @map("error_message")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  agentRun AgentRun @relation(fields: [agentRunId], references: [id], onDelete: Cascade)
+
+  @@index([agentRunId])
+  @@index([toolName])
+  @@map("tool_calls")
+}
+
+enum ToolType {
+  NATIVE
+  MCP
+  PIPEDREAM
+  CUSTOM
+}
+
+model ToolDefinition {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String
+  type        ToolType
+  schema      Json
+  endpoint    String?
+  enabled     Boolean  @default(true)
+  config      Json     @default("{}")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("tool_definitions")
+}
+
+// ─── Memory System ──────────────────────────────────────
+
+model Learning {
+  id          String   @id @default(cuid())
+  workspaceId String   @map("workspace_id")
+  content     String
+  source      String
+  category    String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+  @@map("learnings")
+}
+
+model Skill {
+  id          String   @id @default(cuid())
+  workspaceId String   @map("workspace_id")
+  name        String
+  content     String
+  version     Int      @default(1)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, name])
+  @@map("skills")
+}
+
+// ─── Thread Orchestration ───────────────────────────────
+
+model Thread {
+  id            String       @id @default(cuid())
+  workspaceId   String       @map("workspace_id")
+  slackChannel  String       @map("slack_channel")
+  slackThreadTs String       @map("slack_thread_ts")
+  status        ThreadStatus @default(ACTIVE)
+  phase         Int          @default(0)
+  metadata      Json         @default("{}")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+
+  workspace Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  agentRuns AgentRun[]
+
+  @@unique([workspaceId, slackChannel, slackThreadTs])
+  @@map("threads")
+}
+
+enum ThreadStatus {
+  ACTIVE
+  WAITING
+  COMPLETED
+  STALE
+}
+
+// ─── Cron & Scheduling ──────────────────────────────────
+
+model CronJob {
+  id              String    @id @default(cuid())
+  workspaceId     String    @map("workspace_id")
+  name            String
+  schedule        String
+  description     String?
+  conditionScript String?   @map("condition_script")
+  agentPrompt     String    @map("agent_prompt")
+  costTier        Int       @default(1) @map("cost_tier")
+  enabled         Boolean   @default(true)
+  lastRunAt       DateTime? @map("last_run_at")
+  nextRunAt       DateTime? @map("next_run_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("cron_jobs")
+}
