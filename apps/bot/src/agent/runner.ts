@@ -1,6 +1,15 @@
 import type { PrismaClient } from "@openviktor/db";
 import type { ContentBlock, Logger, ToolUseBlock, TriggerType } from "@openviktor/shared";
 import type { LLMMessage } from "@openviktor/shared";
+import {
+	CONTEXT_WINDOW_SIZE,
+	type StoredMessage,
+	type SummaryResult,
+	buildContextWindow,
+	generateThreadSummary,
+	needsNewSummary,
+	parseThreadSummary,
+} from "./context.js";
 import { type LLMGateway, extractText } from "./gateway.js";
 import { type PromptContext, buildSystemPrompt } from "./prompt.js";
 
@@ -81,17 +90,18 @@ export class AgentRunner {
 				},
 			});
 
-			const messages = await this.buildMessages(thread.id, systemPrompt);
-			const { responseText, inputTokens, outputTokens, costCents } = await this.execute(
-				agentRun.id,
-				messages,
-			);
+			const { messages, summaryUsage } = await this.buildMessages(thread, systemPrompt);
+			const executeResult = await this.execute(agentRun.id, messages);
+
+			const inputTokens = executeResult.inputTokens + (summaryUsage?.inputTokens ?? 0);
+			const outputTokens = executeResult.outputTokens + (summaryUsage?.outputTokens ?? 0);
+			const costCents = executeResult.costCents + (summaryUsage?.costCents ?? 0);
 
 			await this.prisma.message.create({
 				data: {
 					agentRunId: agentRun.id,
 					role: "assistant",
-					content: responseText,
+					content: executeResult.responseText,
 					tokenCount: outputTokens,
 				},
 			});
@@ -118,7 +128,7 @@ export class AgentRunner {
 			return {
 				agentRunId: agentRun.id,
 				threadId: thread.id,
-				responseText,
+				responseText: executeResult.responseText,
 				inputTokens,
 				outputTokens,
 				costCents,
@@ -151,21 +161,75 @@ export class AgentRunner {
 		}
 	}
 
-	private async buildMessages(threadId: string, systemPrompt: string): Promise<LLMMessage[]> {
-		const history = await this.prisma.message.findMany({
-			where: { agentRun: { threadId } },
+	private async buildMessages(
+		thread: { id: string; metadata: unknown },
+		systemPrompt: string,
+	): Promise<{
+		messages: LLMMessage[];
+		summaryUsage: { inputTokens: number; outputTokens: number; costCents: number } | null;
+	}> {
+		const history: StoredMessage[] = await this.prisma.message.findMany({
+			where: { agentRun: { threadId: thread.id } },
 			orderBy: { createdAt: "asc" },
 		});
 
-		const messages: LLMMessage[] = [{ role: "system", content: systemPrompt }];
-
-		for (const msg of history) {
-			if (msg.role === "user" || msg.role === "assistant") {
-				messages.push({ role: msg.role, content: msg.content });
-			}
+		if (history.length <= CONTEXT_WINDOW_SIZE) {
+			return { messages: buildContextWindow(history, systemPrompt, null), summaryUsage: null };
 		}
 
-		return messages;
+		const existingSummary = parseThreadSummary(thread.metadata);
+		const cutoff = history.length - CONTEXT_WINDOW_SIZE;
+		const olderMessages = history.slice(0, cutoff);
+
+		if (!needsNewSummary(olderMessages, existingSummary)) {
+			return {
+				messages: buildContextWindow(history, systemPrompt, existingSummary?.summary ?? null),
+				summaryUsage: null,
+			};
+		}
+
+		let result: SummaryResult;
+		try {
+			result = await generateThreadSummary(olderMessages, this.llm);
+		} catch (error) {
+			this.logger.warn(
+				{ threadId: thread.id, err: error },
+				"Failed to generate thread summary, using truncation",
+			);
+			return { messages: buildContextWindow(history, systemPrompt, null), summaryUsage: null };
+		}
+
+		const lastOlder = olderMessages[olderMessages.length - 1];
+		const metaBase =
+			thread.metadata && typeof thread.metadata === "object" && !Array.isArray(thread.metadata)
+				? (thread.metadata as Record<string, unknown>)
+				: {};
+
+		await this.prisma.thread.update({
+			where: { id: thread.id },
+			data: {
+				metadata: {
+					...metaBase,
+					summary: result.summary,
+					summarizedUpToId: lastOlder.id,
+					summarizedCount: olderMessages.length,
+				},
+			},
+		});
+
+		this.logger.info(
+			{ threadId: thread.id, summarizedCount: olderMessages.length },
+			"Generated thread summary",
+		);
+
+		return {
+			messages: buildContextWindow(history, systemPrompt, result.summary),
+			summaryUsage: {
+				inputTokens: result.inputTokens,
+				outputTokens: result.outputTokens,
+				costCents: result.costCents,
+			},
+		};
 	}
 
 	private async execute(
