@@ -7,8 +7,26 @@ export interface PromptContext {
 	userName?: string;
 	skillCatalog?: string[];
 	cronJobName?: string;
-	learnings?: string[];
 	heartbeatPrompt?: string;
+}
+
+function triggerLabel(triggerType: TriggerType): string {
+	switch (triggerType) {
+		case "MENTION":
+			return "Channel mention";
+		case "DM":
+			return "Direct message";
+		case "CRON":
+			return "Scheduled cron job";
+		case "HEARTBEAT":
+			return "Heartbeat check-in";
+		case "DISCOVERY":
+			return "Discovery";
+		case "MANUAL":
+			return "Manual trigger";
+		default:
+			return `Unknown (${triggerType})`;
+	}
 }
 
 export function buildSystemPrompt(ctx: PromptContext): string {
@@ -50,7 +68,7 @@ export function buildSystemPrompt(ctx: PromptContext): string {
 		"- Match the energy of the conversation — casual for casual, detailed for technical.",
 		"",
 		"## Current Context",
-		`- Trigger: ${ctx.triggerType === "MENTION" ? "Channel mention" : "Direct message"}`,
+		`- Trigger: ${triggerLabel(ctx.triggerType)}`,
 		`- Channel: ${ctx.channel}`,
 	];
 

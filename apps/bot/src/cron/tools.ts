@@ -5,8 +5,6 @@ import { checkFrequencyWarning } from "./cost-control.js";
 import { calculateNextRun, estimateRunsPerDay, isValidCronExpression } from "./cron-parser.js";
 import type { CronScheduler } from "./scheduler.js";
 
-// ─── Tool Definitions ──────────────────────────────────
-
 export const createCronJobDefinition: LLMToolDefinition = {
 	name: "create_cron_job",
 	description:
@@ -28,12 +26,12 @@ export const createCronJobDefinition: LLMToolDefinition = {
 			condition_script: {
 				type: "string",
 				description:
-					"TypeScript condition body. Return true to run, false to skip. Has access to ctx and helpers (hasNewSlackMessages, isWithinBudget, hasActiveThreads).",
+					"TypeScript condition body. Return true to run, false to skip. Has access to ctx (workspaceId, cronJobId, lastRunAt) and helpers (hasNewSlackMessages, isWithinBudget, hasActiveThreads).",
 			},
 			slack_channel: {
 				type: "string",
 				description:
-					"Slack channel ID for output. Defaults to the channel where this tool is called.",
+					'Slack channel ID for output. Required — provide the channel where results should be posted (e.g. "C01ABCDEF"). Falls back to "general" if omitted.',
 			},
 		},
 		required: ["name", "schedule", "agent_prompt"],
@@ -79,8 +77,6 @@ export const listCronJobsDefinition: LLMToolDefinition = {
 		properties: {},
 	},
 };
-
-// ─── Tool Executors ────────────────────────────────────
 
 export function createCronToolExecutors(
 	prisma: PrismaClient,
@@ -165,8 +161,10 @@ export function createCronToolExecutors(
 				? await prisma.cronJob.findFirst({
 						where: { id: cronJobId, workspaceId: ctx.workspaceId },
 					})
-				: await prisma.cronJob.findFirst({
-						where: { name, workspaceId: ctx.workspaceId, enabled: true },
+				: await prisma.cronJob.findUnique({
+						where: {
+							workspaceId_name: { workspaceId: ctx.workspaceId, name: name as string },
+						},
 					});
 
 			if (!job) {
@@ -209,8 +207,10 @@ export function createCronToolExecutors(
 				? await prisma.cronJob.findFirst({
 						where: { id: cronJobId, workspaceId: ctx.workspaceId },
 					})
-				: await prisma.cronJob.findFirst({
-						where: { name, workspaceId: ctx.workspaceId },
+				: await prisma.cronJob.findUnique({
+						where: {
+							workspaceId_name: { workspaceId: ctx.workspaceId, name: name as string },
+						},
 					});
 
 			if (!job) {
@@ -221,32 +221,24 @@ export function createCronToolExecutors(
 				};
 			}
 
-			// Temporarily update the prompt if extra context provided
-			if (extraPrompt) {
-				await prisma.cronJob.update({
-					where: { id: job.id },
-					data: {
-						nextRunAt: new Date(),
-						agentPrompt: `${job.agentPrompt}\n\n## Additional Context\n${extraPrompt}`,
+			try {
+				await scheduler.triggerJob(job.id, extraPrompt);
+				return {
+					output: {
+						id: job.id,
+						name: job.name,
+						status: "triggered",
+						message: "Job executed immediately",
 					},
-				});
-			} else {
-				await prisma.cronJob.update({
-					where: { id: job.id },
-					data: { nextRunAt: new Date() },
-				});
+					durationMs: Date.now() - start,
+				};
+			} catch (error) {
+				return {
+					output: null,
+					durationMs: Date.now() - start,
+					error: `Failed to trigger job: ${error instanceof Error ? error.message : String(error)}`,
+				};
 			}
-
-			// The scheduler will pick it up on next tick
-			return {
-				output: {
-					id: job.id,
-					name: job.name,
-					status: "triggered",
-					message: "Job will execute on the next scheduler tick (~30s)",
-				},
-				durationMs: Date.now() - start,
-			};
 		},
 
 		async list_cron_jobs(

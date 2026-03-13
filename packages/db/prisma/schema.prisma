@@ -76,6 +76,7 @@ model AgentRun {
 
   @@index([workspaceId, createdAt])
   @@index([status])
+  @@index([cronJobId])
   @@map("agent_runs")
 }
 
@@ -241,6 +242,7 @@ model CronJob {
   workspace Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   agentRuns AgentRun[]
 
+  @@unique([workspaceId, name])
   @@index([enabled, nextRunAt])
   @@map("cron_jobs")
 }

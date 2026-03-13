@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { type ConditionContext, builtinHelpers, evaluateCondition } from "../condition.js";
+import { type ConditionContext, createConditionHelpers, evaluateCondition } from "../condition.js";
 
 function createMockLogger() {
 	return {
@@ -19,15 +19,20 @@ function createMockContext(overrides: Partial<ConditionContext> = {}): Condition
 		workspaceId: "ws-1",
 		cronJobId: "cron-1",
 		lastRunAt: new Date("2026-03-13T08:00:00Z"),
-		prisma: {} as any,
-		slackToken: "xoxb-test",
 		...overrides,
 	};
 }
 
 describe("evaluateCondition", () => {
+	const mockPrisma = {} as any;
+
 	it("returns true for a truthy script", async () => {
-		const result = await evaluateCondition("return true;", createMockContext(), createMockLogger());
+		const result = await evaluateCondition(
+			"return true;",
+			createMockContext(),
+			mockPrisma,
+			createMockLogger(),
+		);
 		expect(result).toBe(true);
 	});
 
@@ -35,15 +40,17 @@ describe("evaluateCondition", () => {
 		const result = await evaluateCondition(
 			"return false;",
 			createMockContext(),
+			mockPrisma,
 			createMockLogger(),
 		);
 		expect(result).toBe(false);
 	});
 
-	it("has access to ctx object", async () => {
+	it("has access to ctx with safe fields only", async () => {
 		const result = await evaluateCondition(
-			'return ctx.workspaceId === "ws-1";',
+			'return ctx.workspaceId === "ws-1" && ctx.prisma === undefined;',
 			createMockContext(),
+			mockPrisma,
 			createMockLogger(),
 		);
 		expect(result).toBe(true);
@@ -53,6 +60,7 @@ describe("evaluateCondition", () => {
 		const result = await evaluateCondition(
 			"return typeof helpers.hasNewSlackMessages === 'function';",
 			createMockContext(),
+			mockPrisma,
 			createMockLogger(),
 		);
 		expect(result).toBe(true);
@@ -63,6 +71,7 @@ describe("evaluateCondition", () => {
 		const result = await evaluateCondition(
 			"throw new Error('test error');",
 			createMockContext(),
+			mockPrisma,
 			logger,
 		);
 		expect(result).toBe(false);
@@ -72,23 +81,34 @@ describe("evaluateCondition", () => {
 	it("returns false on timeout", async () => {
 		const logger = createMockLogger();
 		const result = await evaluateCondition(
-			"return new Promise(() => {});", // never resolves
+			"return new Promise(() => {});",
 			createMockContext(),
+			mockPrisma,
 			logger,
 		);
 		expect(result).toBe(false);
 	}, 10_000);
 
 	it("coerces non-boolean returns", async () => {
-		const result = await evaluateCondition("return 1;", createMockContext(), createMockLogger());
+		const result = await evaluateCondition(
+			"return 1;",
+			createMockContext(),
+			mockPrisma,
+			createMockLogger(),
+		);
 		expect(result).toBe(true);
 
-		const result2 = await evaluateCondition("return 0;", createMockContext(), createMockLogger());
+		const result2 = await evaluateCondition(
+			"return 0;",
+			createMockContext(),
+			mockPrisma,
+			createMockLogger(),
+		);
 		expect(result2).toBe(false);
 	});
 });
 
-describe("builtinHelpers", () => {
+describe("createConditionHelpers", () => {
 	it("hasNewSlackMessages queries messages since lastRunAt", async () => {
 		const mockPrisma = {
 			message: {
@@ -96,8 +116,9 @@ describe("builtinHelpers", () => {
 			},
 		} as any;
 
-		const ctx = createMockContext({ prisma: mockPrisma });
-		const result = await builtinHelpers.hasNewSlackMessages(ctx);
+		const ctx = createMockContext();
+		const helpers = createConditionHelpers(mockPrisma, ctx);
+		const result = await helpers.hasNewSlackMessages();
 
 		expect(result).toBe(true);
 		expect(mockPrisma.message.findFirst).toHaveBeenCalledWith({
@@ -116,8 +137,8 @@ describe("builtinHelpers", () => {
 			},
 		} as any;
 
-		const ctx = createMockContext({ prisma: mockPrisma });
-		const result = await builtinHelpers.hasNewSlackMessages(ctx);
+		const helpers = createConditionHelpers(mockPrisma, createMockContext());
+		const result = await helpers.hasNewSlackMessages();
 		expect(result).toBe(false);
 	});
 
@@ -128,8 +149,8 @@ describe("builtinHelpers", () => {
 			},
 		} as any;
 
-		const ctx = createMockContext({ prisma: mockPrisma });
-		const result = await builtinHelpers.isWithinBudget(ctx, { maxMonthlyCents: 100 });
+		const helpers = createConditionHelpers(mockPrisma, createMockContext());
+		const result = await helpers.isWithinBudget({ maxMonthlyCents: 100 });
 		expect(result).toBe(true);
 	});
 
@@ -140,8 +161,8 @@ describe("builtinHelpers", () => {
 			},
 		} as any;
 
-		const ctx = createMockContext({ prisma: mockPrisma });
-		const result = await builtinHelpers.isWithinBudget(ctx, { maxMonthlyCents: 100 });
+		const helpers = createConditionHelpers(mockPrisma, createMockContext());
+		const result = await helpers.isWithinBudget({ maxMonthlyCents: 100 });
 		expect(result).toBe(false);
 	});
 
@@ -152,8 +173,8 @@ describe("builtinHelpers", () => {
 			},
 		} as any;
 
-		const ctx = createMockContext({ prisma: mockPrisma });
-		const result = await builtinHelpers.hasActiveThreads(ctx);
+		const helpers = createConditionHelpers(mockPrisma, createMockContext());
+		const result = await helpers.hasActiveThreads();
 		expect(result).toBe(true);
 	});
 });

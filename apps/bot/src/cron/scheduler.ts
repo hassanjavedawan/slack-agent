@@ -21,6 +21,21 @@ export interface SchedulerConfig {
 	defaultModel: string;
 }
 
+interface CronJobRecord {
+	id: string;
+	workspaceId: string;
+	name: string;
+	schedule: string;
+	type: string;
+	costTier: number;
+	agentPrompt: string;
+	conditionScript: string | null;
+	slackChannel: string | null;
+	lastRunAt: Date | null;
+	runCount: number;
+	workspace: { id: string; slackTeamName: string; settings: unknown };
+}
+
 export class CronScheduler {
 	private timer: ReturnType<typeof setInterval> | null = null;
 	private running = new Set<string>();
@@ -37,7 +52,6 @@ export class CronScheduler {
 		if (this.timer) return;
 		this.logger.info({ intervalMs: this.config.checkIntervalMs }, "Cron scheduler started");
 		this.timer = setInterval(() => this.tick(), this.config.checkIntervalMs);
-		// Run first tick immediately
 		this.tick();
 	}
 
@@ -90,48 +104,51 @@ export class CronScheduler {
 		}
 	}
 
-	private async executeJob(job: {
-		id: string;
-		workspaceId: string;
-		name: string;
-		schedule: string;
-		type: string;
-		costTier: number;
-		agentPrompt: string;
-		conditionScript: string | null;
-		slackChannel: string | null;
-		lastRunAt: Date | null;
-		runCount: number;
-		workspace: { id: string; slackTeamName: string; settings: unknown };
-	}): Promise<void> {
+	async triggerJob(jobId: string, extraPrompt?: string): Promise<void> {
+		const job = await this.prisma.cronJob.findFirst({
+			where: { id: jobId },
+			include: { workspace: true },
+		});
+		if (!job) throw new Error(`Cron job not found: ${jobId}`);
+
+		const agentPrompt = extraPrompt
+			? `${job.agentPrompt}\n\n## Additional Context\n${extraPrompt}`
+			: job.agentPrompt;
+
+		await this.executeJob({ ...job, agentPrompt }, true);
+	}
+
+	private async executeJob(job: CronJobRecord, skipCondition = false): Promise<void> {
 		const triggerType: TriggerType = job.type === "HEARTBEAT" ? "HEARTBEAT" : "CRON";
 
 		try {
-			// Layer 1: Check workspace budget
-			const costCheck = await checkCostControl(this.prisma, job.workspaceId, this.logger);
-			if (!costCheck.allowed) {
-				await this.updateJobAfterSkip(job);
-				return;
-			}
-
-			// Layer 3: Evaluate condition script
-			if (job.conditionScript) {
-				const condCtx: ConditionContext = {
-					workspaceId: job.workspaceId,
-					cronJobId: job.id,
-					lastRunAt: job.lastRunAt,
-					prisma: this.prisma,
-					slackToken: this.config.slackToken,
-				};
-				const shouldRun = await evaluateCondition(job.conditionScript, condCtx, this.logger);
-				if (!shouldRun) {
-					this.logger.info({ cronJobId: job.id, name: job.name }, "Condition not met, skipping");
+			if (!skipCondition) {
+				const costCheck = await checkCostControl(this.prisma, job.workspaceId, this.logger);
+				if (!costCheck.allowed) {
 					await this.updateJobAfterSkip(job);
 					return;
 				}
+
+				if (job.conditionScript) {
+					const condCtx: ConditionContext = {
+						workspaceId: job.workspaceId,
+						cronJobId: job.id,
+						lastRunAt: job.lastRunAt,
+					};
+					const shouldRun = await evaluateCondition(
+						job.conditionScript,
+						condCtx,
+						this.prisma,
+						this.logger,
+					);
+					if (!shouldRun) {
+						this.logger.info({ cronJobId: job.id, name: job.name }, "Condition not met, skipping");
+						await this.updateJobAfterSkip(job);
+						return;
+					}
+				}
 			}
 
-			// Build prompt
 			let agentPrompt: string;
 			let heartbeatPromptForContext: string | undefined;
 
@@ -150,6 +167,8 @@ export class CronScheduler {
 				agentPrompt = job.agentPrompt;
 			}
 
+			const model = getModelForTier(job.costTier, this.config.defaultModel);
+
 			const promptContext: PromptContext = {
 				workspaceName: job.workspace.slackTeamName,
 				channel: job.slackChannel ?? "general",
@@ -165,13 +184,17 @@ export class CronScheduler {
 				memberId: null,
 				triggerType,
 				cronJobId: job.id,
+				model,
 				slackChannel: job.slackChannel ?? "general",
 				slackThreadTs,
 				userMessage: agentPrompt,
 				promptContext,
 			};
 
-			this.logger.info({ cronJobId: job.id, name: job.name, triggerType }, "Executing cron job");
+			this.logger.info(
+				{ cronJobId: job.id, name: job.name, triggerType, model },
+				"Executing cron job",
+			);
 
 			const result = await this.runner.run(trigger);
 
@@ -203,19 +226,16 @@ export class CronScheduler {
 			);
 
 			const now = new Date();
-			const newRunCount = job.runCount + 1;
-
 			await this.prisma.cronJob.update({
 				where: { id: job.id },
 				data: {
 					lastRunAt: now,
 					nextRunAt: calculateNextRun(job.schedule, now),
-					runCount: newRunCount,
+					runCount: job.runCount + 1,
 					lastRunStatus: "FAILED",
 				},
 			});
 
-			// Check for consecutive failures
 			const recentRuns = await this.prisma.agentRun.findMany({
 				where: { cronJobId: job.id },
 				orderBy: { createdAt: "desc" },

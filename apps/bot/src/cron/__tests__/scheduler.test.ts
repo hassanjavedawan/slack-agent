@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { CronScheduler } from "../scheduler.js";
 
 function createMockLogger() {
@@ -29,10 +29,11 @@ function createMockRunner() {
 	} as any;
 }
 
-function createMockPrisma(dueJobs: any[] = []) {
+function createMockPrisma(dueJobs: unknown[] = []) {
 	return {
 		cronJob: {
 			findMany: vi.fn().mockResolvedValue(dueJobs),
+			findFirst: vi.fn().mockResolvedValue(null),
 			update: vi.fn().mockResolvedValue({}),
 		},
 		agentRun: {
@@ -80,9 +81,8 @@ describe("CronScheduler", () => {
 		});
 	});
 
-	it("executes due cron job via runner", async () => {
+	it("executes due cron job via runner with tier-selected model", async () => {
 		const runner = createMockRunner();
-		const now = new Date();
 		const dueJob = {
 			id: "cron-1",
 			workspaceId: "ws-1",
@@ -99,20 +99,19 @@ describe("CronScheduler", () => {
 		};
 
 		const prisma = createMockPrisma([dueJob]);
-		// Mock workspace budget check
 		prisma.workspace = { findUnique: vi.fn().mockResolvedValue({ settings: {} }) };
 
 		scheduler = new CronScheduler(prisma, runner, createMockLogger(), defaultConfig);
 		await scheduler.tick();
 
-		// Wait for async job execution
-		await new Promise((r) => setTimeout(r, 100));
+		await vi.waitFor(() => expect(runner.run).toHaveBeenCalled());
 
 		expect(runner.run).toHaveBeenCalledWith(
 			expect.objectContaining({
 				workspaceId: "ws-1",
 				triggerType: "CRON",
 				cronJobId: "cron-1",
+				model: expect.stringContaining("haiku"),
 				userMessage: "Do something",
 			}),
 		);
@@ -142,7 +141,7 @@ describe("CronScheduler", () => {
 		});
 
 		await scheduler.tick();
-		await new Promise((r) => setTimeout(r, 100));
+		await new Promise((r) => setTimeout(r, 50));
 
 		expect(runner.run).not.toHaveBeenCalled();
 	});
@@ -170,7 +169,7 @@ describe("CronScheduler", () => {
 		scheduler = new CronScheduler(prisma, runner, createMockLogger(), defaultConfig);
 		await scheduler.tick();
 
-		await new Promise((r) => setTimeout(r, 100));
+		await vi.waitFor(() => expect(prisma.cronJob.update).toHaveBeenCalled());
 
 		expect(runner.run).not.toHaveBeenCalled();
 		expect(prisma.cronJob.update).toHaveBeenCalledWith(
@@ -203,7 +202,7 @@ describe("CronScheduler", () => {
 
 		scheduler = new CronScheduler(prisma, runner, createMockLogger(), defaultConfig);
 		await scheduler.tick();
-		await new Promise((r) => setTimeout(r, 100));
+		await vi.waitFor(() => expect(prisma.cronJob.update).toHaveBeenCalled());
 
 		expect(prisma.cronJob.update).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -242,7 +241,7 @@ describe("CronScheduler", () => {
 
 		scheduler = new CronScheduler(prisma, runner, createMockLogger(), defaultConfig);
 		await scheduler.tick();
-		await new Promise((r) => setTimeout(r, 100));
+		await vi.waitFor(() => expect(prisma.cronJob.update).toHaveBeenCalled());
 
 		expect(prisma.cronJob.update).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -251,6 +250,38 @@ describe("CronScheduler", () => {
 					lastRunStatus: "FAILED",
 					runCount: 1,
 				}),
+			}),
+		);
+	});
+
+	it("triggerJob executes immediately bypassing conditions", async () => {
+		const runner = createMockRunner();
+		const job = {
+			id: "cron-trig",
+			workspaceId: "ws-1",
+			name: "Trigger Me",
+			schedule: "0 9 * * *",
+			type: "CUSTOM",
+			costTier: 2,
+			agentPrompt: "Base prompt",
+			conditionScript: "return false;",
+			slackChannel: "C123",
+			lastRunAt: null,
+			runCount: 0,
+			enabled: false,
+			workspace: { id: "ws-1", slackTeamName: "Test", settings: {} },
+		};
+
+		const prisma = createMockPrisma();
+		prisma.cronJob.findFirst = vi.fn().mockResolvedValue(job);
+		prisma.workspace = { findUnique: vi.fn().mockResolvedValue({ settings: {} }) };
+
+		scheduler = new CronScheduler(prisma, runner, createMockLogger(), defaultConfig);
+		await scheduler.triggerJob("cron-trig", "Extra context");
+
+		expect(runner.run).toHaveBeenCalledWith(
+			expect.objectContaining({
+				userMessage: expect.stringContaining("Extra context"),
 			}),
 		);
 	});

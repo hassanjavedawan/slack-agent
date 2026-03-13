@@ -12,6 +12,9 @@ ALTER TABLE "agent_runs" ADD COLUMN "cron_job_id" TEXT;
 
 -- CreateIndex
 CREATE INDEX "cron_jobs_enabled_next_run_at_idx" ON "cron_jobs"("enabled", "next_run_at");
+CREATE INDEX "agent_runs_cron_job_id_idx" ON "agent_runs"("cron_job_id");
+CREATE UNIQUE INDEX "cron_jobs_workspace_id_name_key" ON "cron_jobs"("workspace_id", "name");
+CREATE UNIQUE INDEX "cron_jobs_workspace_heartbeat_unique" ON "cron_jobs"("workspace_id") WHERE "type" = 'HEARTBEAT';
 
 -- AddForeignKey
 ALTER TABLE "agent_runs" ADD CONSTRAINT "agent_runs_cron_job_id_fkey" FOREIGN KEY ("cron_job_id") REFERENCES "cron_jobs"("id") ON DELETE SET NULL ON UPDATE CASCADE;

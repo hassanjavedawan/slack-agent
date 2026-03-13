@@ -27,6 +27,7 @@ export interface RunTrigger {
 	memberId: string | null;
 	triggerType: TriggerType;
 	cronJobId?: string;
+	model?: string;
 	slackChannel: string;
 	slackThreadTs: string;
 	userMessage: string;
@@ -86,6 +87,8 @@ export class AgentRunner {
 
 		const systemPrompt = buildSystemPrompt(trigger.promptContext);
 
+		const model = trigger.model ?? this.llm.getModel();
+
 		const agentRun = await this.prisma.agentRun.create({
 			data: {
 				workspaceId: trigger.workspaceId,
@@ -93,7 +96,7 @@ export class AgentRunner {
 				triggeredBy: trigger.memberId,
 				triggerType: trigger.triggerType,
 				cronJobId: trigger.cronJobId ?? null,
-				model: this.llm.getModel(),
+				model,
 				systemPrompt,
 				startedAt: new Date(),
 				status: "RUNNING",
@@ -114,7 +117,7 @@ export class AgentRunner {
 			});
 
 			const { messages, summaryUsage } = await this.buildMessages(thread, systemPrompt);
-			const executeResult = await this.execute(agentRun.id, messages);
+			const executeResult = await this.execute(agentRun.id, messages, trigger.model);
 
 			const inputTokens = executeResult.inputTokens + (summaryUsage?.inputTokens ?? 0);
 			const outputTokens = executeResult.outputTokens + (summaryUsage?.outputTokens ?? 0);
@@ -258,6 +261,7 @@ export class AgentRunner {
 	private async execute(
 		agentRunId: string,
 		messages: LLMMessage[],
+		modelOverride?: string,
 	): Promise<{
 		responseText: string;
 		inputTokens: number;
@@ -269,8 +273,10 @@ export class AgentRunner {
 		let totalCostCents = 0;
 
 		const chatOptions: ChatOptions | undefined = this.toolConfig
-			? { tools: this.toolConfig.tools }
-			: undefined;
+			? { tools: this.toolConfig.tools, model: modelOverride }
+			: modelOverride
+				? { model: modelOverride }
+				: undefined;
 
 		for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
 			const response = await this.llm.chat(messages, chatOptions);

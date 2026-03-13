@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { calculateNextRun, estimateRunsPerDay, isValidCronExpression } from "../cron-parser.js";
 
 describe("isValidCronExpression", () => {
@@ -18,11 +18,10 @@ describe("isValidCronExpression", () => {
 
 describe("calculateNextRun", () => {
 	it("calculates next run from a given date", () => {
-		// Monday 9am weekly — from a Wednesday
-		const wednesday = new Date("2026-03-11T10:00:00Z"); // Wednesday
+		const wednesday = new Date("2026-03-11T10:00:00Z");
 		const next = calculateNextRun("0 9 * * 1", wednesday);
-		expect(next.getDay()).toBe(1); // Monday
-		expect(next.getHours()).toBe(9);
+		expect(next.getUTCDay()).toBe(1);
+		expect(next.getUTCHours()).toBe(9);
 		expect(next > wednesday).toBe(true);
 	});
 
@@ -33,18 +32,17 @@ describe("calculateNextRun", () => {
 	});
 
 	it("handles heartbeat schedule (4x/day weekdays)", () => {
-		// Friday at 7am — next should be 8:01
 		const friday = new Date("2026-03-13T07:00:00Z");
 		const next = calculateNextRun("1 8,11,14,17 * * 1-5", friday);
-		expect(next.getHours()).toBe(8);
-		expect(next.getMinutes()).toBe(1);
+		expect(next.getUTCHours()).toBe(8);
+		expect(next.getUTCMinutes()).toBe(1);
 	});
 
 	it("handles end-of-month edge case", () => {
 		const feb28 = new Date("2026-02-28T23:00:00Z");
 		const next = calculateNextRun("0 9 1 * *", feb28);
-		expect(next.getDate()).toBe(1);
-		expect(next.getMonth()).toBe(2); // March
+		expect(next.getUTCDate()).toBe(1);
+		expect(next.getUTCMonth()).toBe(2);
 	});
 });
 
@@ -61,12 +59,24 @@ describe("estimateRunsPerDay", () => {
 		expect(runs).toBeLessThanOrEqual(24);
 	});
 
-	it("estimates 4 for heartbeat schedule on weekday", () => {
-		// This depends on what day the test runs — heartbeat is weekdays only
-		const runs = estimateRunsPerDay("1 8,11,14,17 * * 1-5");
-		const today = new Date().getDay();
-		const isWeekday = today >= 1 && today <= 5;
-		expect(runs).toBe(isWeekday ? 4 : 0);
+	describe("heartbeat schedule", () => {
+		beforeEach(() => {
+			vi.useFakeTimers();
+		});
+
+		afterEach(() => {
+			vi.useRealTimers();
+		});
+
+		it("estimates 4 on a weekday", () => {
+			vi.setSystemTime(new Date("2026-03-11T12:00:00Z")); // Wednesday
+			expect(estimateRunsPerDay("1 8,11,14,17 * * 1-5")).toBe(4);
+		});
+
+		it("estimates 0 on a weekend", () => {
+			vi.setSystemTime(new Date("2026-03-14T12:00:00Z")); // Saturday
+			expect(estimateRunsPerDay("1 8,11,14,17 * * 1-5")).toBe(0);
+		});
 	});
 
 	it("estimates 1 for daily cron", () => {

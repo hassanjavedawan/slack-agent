@@ -13,6 +13,17 @@ describe("checkWorkspaceBudget", () => {
 		expect(result.allowed).toBe(true);
 	});
 
+	it("allows when workspace not found", async () => {
+		const prisma = {
+			workspace: {
+				findUnique: vi.fn().mockResolvedValue(null),
+			},
+		} as any;
+
+		const result = await checkWorkspaceBudget(prisma, "ws-nonexistent");
+		expect(result.allowed).toBe(true);
+	});
+
 	it("allows when under budget", async () => {
 		const prisma = {
 			workspace: {
@@ -27,6 +38,22 @@ describe("checkWorkspaceBudget", () => {
 
 		const result = await checkWorkspaceBudget(prisma, "ws-1");
 		expect(result.allowed).toBe(true);
+	});
+
+	it("allows when exactly at budget (boundary)", async () => {
+		const prisma = {
+			workspace: {
+				findUnique: vi.fn().mockResolvedValue({
+					settings: { costControl: { monthlyBudgetCents: 10000 } },
+				}),
+			},
+			agentRun: {
+				aggregate: vi.fn().mockResolvedValue({ _sum: { costCents: 10000 } }),
+			},
+		} as any;
+
+		const result = await checkWorkspaceBudget(prisma, "ws-1");
+		expect(result.allowed).toBe(false);
 	});
 
 	it("blocks when over budget", async () => {
@@ -49,13 +76,13 @@ describe("checkWorkspaceBudget", () => {
 
 describe("checkFrequencyWarning", () => {
 	it("returns null for low-frequency schedules", () => {
-		expect(checkFrequencyWarning("0 9 * * 1")).toBeNull(); // Weekly
-		expect(checkFrequencyWarning("0 9 * * *")).toBeNull(); // Daily
-		expect(checkFrequencyWarning("1 8,11,14,17 * * 1-5")).toBeNull(); // 4x/day
+		expect(checkFrequencyWarning("0 9 * * 1")).toBeNull();
+		expect(checkFrequencyWarning("0 9 * * *")).toBeNull();
+		expect(checkFrequencyWarning("1 8,11,14,17 * * 1-5")).toBeNull();
 	});
 
 	it("returns warning for high-frequency schedules", () => {
-		const warning = checkFrequencyWarning("*/10 * * * *"); // Every 10 mins
+		const warning = checkFrequencyWarning("*/10 * * * *");
 		expect(warning).toContain("High frequency");
 	});
 });

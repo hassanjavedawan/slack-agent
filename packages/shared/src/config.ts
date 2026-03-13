@@ -44,7 +44,7 @@ const envSchema = z
 		MODAL_AUTH_TOKEN: z.string().min(1).optional(),
 
 		// Cron scheduler
-		CRON_CHECK_INTERVAL_MS: z.coerce.number().default(30_000),
+		CRON_CHECK_INTERVAL_MS: z.coerce.number().int().min(1000).default(30_000),
 		HEARTBEAT_ENABLED: z
 			.enum(["true", "false"])
 			.default("true")

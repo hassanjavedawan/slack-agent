@@ -102,7 +102,6 @@ async function main(): Promise<void> {
 		tools: registry.getDefinitions(),
 	});
 
-	// ─── Cron Scheduler ────────────────────────────────────
 	const scheduler = new CronScheduler(prisma, runner, createLogger("cron-scheduler"), {
 		checkIntervalMs: config.CRON_CHECK_INTERVAL_MS,
 		heartbeatEnabled: config.HEARTBEAT_ENABLED,
@@ -110,14 +109,12 @@ async function main(): Promise<void> {
 		defaultModel: config.DEFAULT_MODEL,
 	});
 
-	// Register cron CRUD tools
 	const cronTools = createCronToolExecutors(prisma, scheduler);
 	registry.register("create_cron_job", createCronJobDefinition, cronTools.create_cron_job);
 	registry.register("delete_cron_job", deleteCronJobDefinition, cronTools.delete_cron_job);
 	registry.register("trigger_cron_job", triggerCronJobDefinition, cronTools.trigger_cron_job);
 	registry.register("list_cron_jobs", listCronJobsDefinition, cronTools.list_cron_jobs);
 
-	// Update runner's tool list to include cron tools
 	runner.updateToolConfig({
 		client: gatewayClient,
 		tools: registry.getDefinitions(),
