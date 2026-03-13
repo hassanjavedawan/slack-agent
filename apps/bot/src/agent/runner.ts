@@ -201,7 +201,9 @@ export class AgentRunner {
 			if (toolUses.length === 0) {
 				this.logger.warn({ agentRunId }, "stopReason=tool_use but no tool_use blocks returned");
 				return {
-					responseText: extractText(response.content) || "I ran into an issue processing your request. Please try again.",
+					responseText:
+						extractText(response.content) ||
+						"I ran into an issue processing your request. Please try again.",
 					inputTokens: totalInputTokens,
 					outputTokens: totalOutputTokens,
 					costCents: totalCostCents,
