@@ -151,6 +151,15 @@ describe("write_learning", () => {
 		expect(prisma.learning.create).not.toHaveBeenCalled();
 	});
 
+	it("rejects non-string content", async () => {
+		const executor = createWriteLearningExecutor(prisma as never);
+
+		const result = await executor({ content: 42 }, ctx);
+
+		expect(result.error).toBe("Content is required");
+		expect(prisma.learning.create).not.toHaveBeenCalled();
+	});
+
 	it("trims content whitespace", async () => {
 		prisma.learning.create.mockResolvedValue({ id: "l_trim" });
 		const executor = createWriteLearningExecutor(prisma as never);

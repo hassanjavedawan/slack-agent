@@ -53,16 +53,16 @@ export const writeSkillDefinition: LLMToolDefinition = {
 
 export function createReadSkillExecutor(prisma: PrismaClient): ToolExecutor {
 	return async (args, ctx) => {
-		const name = args.name as string;
-		if (!name || name.trim().length === 0) {
+		if (typeof args.name !== "string" || args.name.trim().length === 0) {
 			return { output: null, durationMs: 0, error: "Skill name is required" };
 		}
+		const name = args.name.trim();
 
 		const skill = await prisma.skill.findUnique({
 			where: {
 				workspaceId_name: {
 					workspaceId: ctx.workspaceId,
-					name: name.trim(),
+					name,
 				},
 			},
 		});
@@ -112,51 +112,44 @@ export function createListSkillsExecutor(prisma: PrismaClient): ToolExecutor {
 
 export function createWriteSkillExecutor(prisma: PrismaClient): ToolExecutor {
 	return async (args, ctx) => {
-		const name = args.name as string;
-		const content = args.content as string;
-		const description = typeof args.description === "string" ? args.description : null;
-
-		if (!name || name.trim().length === 0) {
+		if (typeof args.name !== "string" || args.name.trim().length === 0) {
 			return { output: null, durationMs: 0, error: "Skill name is required" };
 		}
-		if (!content || content.trim().length === 0) {
+		if (typeof args.content !== "string" || args.content.trim().length === 0) {
 			return { output: null, durationMs: 0, error: "Skill content is required" };
 		}
+		const name = args.name.trim();
+		const content = args.content.trim();
+		const description = typeof args.description === "string" ? args.description : null;
 
-		const existing = await prisma.skill.findUnique({
+		const result = await prisma.skill.upsert({
 			where: {
 				workspaceId_name: {
 					workspaceId: ctx.workspaceId,
-					name: name.trim(),
+					name,
 				},
 			},
-		});
-
-		if (existing) {
-			const updated = await prisma.skill.update({
-				where: { id: existing.id },
-				data: {
-					content: content.trim(),
-					description,
-					version: existing.version + 1,
-				},
-			});
-			return {
-				output: { id: updated.id, name: updated.name, version: updated.version, updated: true },
-				durationMs: 0,
-			};
-		}
-
-		const created = await prisma.skill.create({
-			data: {
-				workspaceId: ctx.workspaceId,
-				name: name.trim(),
+			update: {
+				content,
 				description,
-				content: content.trim(),
+				version: { increment: 1 },
+			},
+			create: {
+				workspaceId: ctx.workspaceId,
+				name,
+				description,
+				content,
 			},
 		});
+
+		const wasCreated = result.version === 1;
 		return {
-			output: { id: created.id, name: created.name, version: created.version, created: true },
+			output: {
+				id: result.id,
+				name: result.name,
+				version: result.version,
+				...(wasCreated ? { created: true } : { updated: true }),
+			},
 			durationMs: 0,
 		};
 	};

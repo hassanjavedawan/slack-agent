@@ -13,7 +13,7 @@ export const readLearningsDefinition: LLMToolDefinition = {
 		type: "object",
 		properties: {
 			limit: {
-				type: "number",
+				type: "integer",
 				description: `Number of learnings to return (default: ${DEFAULT_LIMIT}, max: ${MAX_LIMIT})`,
 			},
 			category: {
@@ -41,6 +41,10 @@ export const writeLearningDefinition: LLMToolDefinition = {
 				description:
 					"Optional category (e.g., 'team', 'process', 'technical', 'preference', 'correction')",
 			},
+			agent_run_id: {
+				type: "string",
+				description: "Optional agent run identifier to link this learning to a specific run",
+			},
 		},
 		required: ["content"],
 	},
@@ -48,10 +52,8 @@ export const writeLearningDefinition: LLMToolDefinition = {
 
 export function createReadLearningsExecutor(prisma: PrismaClient): ToolExecutor {
 	return async (args, ctx) => {
-		const limit = Math.min(
-			typeof args.limit === "number" && args.limit > 0 ? args.limit : DEFAULT_LIMIT,
-			MAX_LIMIT,
-		);
+		const rawLimit = typeof args.limit === "number" ? Math.floor(args.limit) : DEFAULT_LIMIT;
+		const limit = Math.max(1, Math.min(rawLimit, MAX_LIMIT));
 		const category = typeof args.category === "string" ? args.category : undefined;
 
 		const where: { workspaceId: string; category?: string } = {
@@ -90,17 +92,16 @@ export function createReadLearningsExecutor(prisma: PrismaClient): ToolExecutor 
 
 export function createWriteLearningExecutor(prisma: PrismaClient): ToolExecutor {
 	return async (args, ctx) => {
-		const content = args.content as string;
-		if (!content || content.trim().length === 0) {
+		if (typeof args.content !== "string" || args.content.trim().length === 0) {
 			return { output: null, durationMs: 0, error: "Content is required" };
 		}
-
+		const content = args.content.trim();
 		const agentRunId = typeof args.agent_run_id === "string" ? args.agent_run_id : undefined;
 
 		const learning = await prisma.learning.create({
 			data: {
 				workspaceId: ctx.workspaceId,
-				content: content.trim(),
+				content,
 				source: agentRunId ? `agent_run:${agentRunId}` : "agent",
 				category: typeof args.category === "string" ? args.category : null,
 				agentRunId: agentRunId ?? null,

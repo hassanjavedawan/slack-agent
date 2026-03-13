@@ -17,8 +17,7 @@ function makePrisma() {
 		skill: {
 			findUnique: vi.fn(),
 			findMany: vi.fn(),
-			create: vi.fn(),
-			update: vi.fn(),
+			upsert: vi.fn(),
 		},
 	};
 }
@@ -69,6 +68,14 @@ describe("read_skill", () => {
 
 		expect(result.error).toBe("Skill name is required");
 	});
+
+	it("rejects non-string name", async () => {
+		const executor = createReadSkillExecutor(prisma as never);
+
+		const result = await executor({ name: 123 }, ctx);
+
+		expect(result.error).toBe("Skill name is required");
+	});
 });
 
 describe("list_skills", () => {
@@ -110,9 +117,8 @@ describe("write_skill", () => {
 		prisma = makePrisma();
 	});
 
-	it("creates a new skill", async () => {
-		prisma.skill.findUnique.mockResolvedValue(null);
-		prisma.skill.create.mockResolvedValue({
+	it("creates a new skill via upsert", async () => {
+		prisma.skill.upsert.mockResolvedValue({
 			id: "sk_new",
 			name: "team",
 			version: 1,
@@ -126,8 +132,14 @@ describe("write_skill", () => {
 
 		expect(result.error).toBeUndefined();
 		expect(result.output).toEqual({ id: "sk_new", name: "team", version: 1, created: true });
-		expect(prisma.skill.create).toHaveBeenCalledWith({
-			data: {
+		expect(prisma.skill.upsert).toHaveBeenCalledWith({
+			where: { workspaceId_name: { workspaceId: "ws_test", name: "team" } },
+			update: {
+				content: "# Team",
+				description: "Team profiles",
+				version: { increment: 1 },
+			},
+			create: {
 				workspaceId: "ws_test",
 				name: "team",
 				description: "Team profiles",
@@ -136,13 +148,8 @@ describe("write_skill", () => {
 		});
 	});
 
-	it("updates existing skill and increments version", async () => {
-		prisma.skill.findUnique.mockResolvedValue({
-			id: "sk_existing",
-			name: "team",
-			version: 2,
-		});
-		prisma.skill.update.mockResolvedValue({
+	it("updates existing skill and increments version via upsert", async () => {
+		prisma.skill.upsert.mockResolvedValue({
 			id: "sk_existing",
 			name: "team",
 			version: 3,
@@ -158,14 +165,6 @@ describe("write_skill", () => {
 			version: 3,
 			updated: true,
 		});
-		expect(prisma.skill.update).toHaveBeenCalledWith({
-			where: { id: "sk_existing" },
-			data: {
-				content: "# Updated Team",
-				description: null,
-				version: 3,
-			},
-		});
 	});
 
 	it("rejects empty name", async () => {
@@ -176,10 +175,26 @@ describe("write_skill", () => {
 		expect(result.error).toBe("Skill name is required");
 	});
 
+	it("rejects non-string name", async () => {
+		const executor = createWriteSkillExecutor(prisma as never);
+
+		const result = await executor({ name: 42, content: "x" }, ctx);
+
+		expect(result.error).toBe("Skill name is required");
+	});
+
 	it("rejects empty content", async () => {
 		const executor = createWriteSkillExecutor(prisma as never);
 
 		const result = await executor({ name: "team", content: "  " }, ctx);
+
+		expect(result.error).toBe("Skill content is required");
+	});
+
+	it("rejects non-string content", async () => {
+		const executor = createWriteSkillExecutor(prisma as never);
+
+		const result = await executor({ name: "team", content: 123 }, ctx);
 
 		expect(result.error).toBe("Skill content is required");
 	});

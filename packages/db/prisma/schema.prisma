@@ -168,6 +168,7 @@ model Learning {
   agentRun  AgentRun? @relation(fields: [agentRunId], references: [id])
 
   @@index([workspaceId, createdAt])
+  @@index([agentRunId])
   @@map("learnings")
 }
 
