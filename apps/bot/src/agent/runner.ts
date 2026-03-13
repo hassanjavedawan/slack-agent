@@ -1,6 +1,13 @@
 import type { PrismaClient } from "@openviktor/db";
-import type { ContentBlock, Logger, ToolUseBlock, TriggerType } from "@openviktor/shared";
+import type {
+	ContentBlock,
+	LLMToolDefinition,
+	Logger,
+	ToolUseBlock,
+	TriggerType,
+} from "@openviktor/shared";
 import type { LLMMessage } from "@openviktor/shared";
+import type { ToolGatewayClient } from "@openviktor/tools";
 import {
 	CONTEXT_WINDOW_SIZE,
 	type StoredMessage,
@@ -10,7 +17,7 @@ import {
 	needsNewSummary,
 	parseThreadSummary,
 } from "./context.js";
-import { type LLMGateway, extractText } from "./gateway.js";
+import { type ChatOptions, type LLMGateway, extractText } from "./gateway.js";
 import { type PromptContext, buildSystemPrompt } from "./prompt.js";
 
 const MAX_TOOL_ROUNDS = 20;
@@ -35,12 +42,22 @@ export interface RunResult {
 	durationMs: number;
 }
 
+export interface ToolConfig {
+	client: ToolGatewayClient;
+	tools: LLMToolDefinition[];
+}
+
 export class AgentRunner {
+	private toolConfig: ToolConfig | null;
+
 	constructor(
 		private prisma: PrismaClient,
 		private llm: LLMGateway,
 		private logger: Logger,
-	) {}
+		toolConfig?: ToolConfig,
+	) {
+		this.toolConfig = toolConfig ?? null;
+	}
 
 	async run(trigger: RunTrigger): Promise<RunResult> {
 		const startTime = Date.now();
@@ -245,8 +262,12 @@ export class AgentRunner {
 		let totalOutputTokens = 0;
 		let totalCostCents = 0;
 
+		const chatOptions: ChatOptions | undefined = this.toolConfig
+			? { tools: this.toolConfig.tools }
+			: undefined;
+
 		for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-			const response = await this.llm.chat(messages);
+			const response = await this.llm.chat(messages, chatOptions);
 
 			totalInputTokens += response.inputTokens;
 			totalOutputTokens += response.outputTokens;
@@ -278,29 +299,8 @@ export class AgentRunner {
 
 			const toolResults: ContentBlock[] = [];
 			for (const toolUse of toolUses) {
-				this.logger.warn(
-					{ tool: toolUse.name, agentRunId },
-					"Tool requested but no executors registered",
-				);
-
-				await this.prisma.toolCall.create({
-					data: {
-						agentRunId,
-						toolName: toolUse.name,
-						toolType: "NATIVE",
-						input: toolUse.input as object,
-						output: { error: "Tool execution not available" },
-						status: "FAILED",
-						errorMessage: "No tool executors registered",
-					},
-				});
-
-				toolResults.push({
-					type: "tool_result",
-					tool_use_id: toolUse.id,
-					content: "Error: This tool is not available. Please respond without using tools.",
-					is_error: true,
-				});
+				const block = await this.executeTool(toolUse, agentRunId);
+				toolResults.push(block);
 			}
 
 			messages.push({ role: "user", content: toolResults });
@@ -314,5 +314,92 @@ export class AgentRunner {
 			outputTokens: totalOutputTokens,
 			costCents: totalCostCents,
 		};
+	}
+
+	private async executeTool(toolUse: ToolUseBlock, agentRunId: string): Promise<ContentBlock> {
+		if (!this.toolConfig) {
+			this.logger.warn(
+				{ tool: toolUse.name, agentRunId },
+				"Tool requested but no gateway configured",
+			);
+			await this.persistToolCall(
+				agentRunId,
+				toolUse,
+				"FAILED",
+				0,
+				null,
+				"No tool gateway configured",
+			);
+			return {
+				type: "tool_result",
+				tool_use_id: toolUse.id,
+				content: "Error: This tool is not available. Please respond without using tools.",
+				is_error: true,
+			};
+		}
+
+		this.logger.info({ tool: toolUse.name, agentRunId }, "Calling tool gateway");
+		const result = await this.toolConfig.client.call(toolUse.name, toolUse.input);
+		const status = result.error ? "FAILED" : "COMPLETED";
+
+		await this.persistToolCall(
+			agentRunId,
+			toolUse,
+			status,
+			result.durationMs,
+			result.output,
+			result.error,
+		);
+
+		if (result.error) {
+			this.logger.warn(
+				{ tool: toolUse.name, agentRunId, error: result.error, durationMs: result.durationMs },
+				"Tool gateway call failed",
+			);
+			return {
+				type: "tool_result",
+				tool_use_id: toolUse.id,
+				content: `Error: ${result.error}`,
+				is_error: true,
+			};
+		}
+
+		this.logger.info(
+			{ tool: toolUse.name, agentRunId, durationMs: result.durationMs },
+			"Tool gateway call completed",
+		);
+		const outputStr =
+			typeof result.output === "string" ? result.output : JSON.stringify(result.output);
+		return {
+			type: "tool_result",
+			tool_use_id: toolUse.id,
+			content: outputStr,
+		};
+	}
+
+	private async persistToolCall(
+		agentRunId: string,
+		toolUse: ToolUseBlock,
+		status: "COMPLETED" | "FAILED",
+		durationMs: number,
+		output: unknown,
+		error: string | undefined,
+	): Promise<void> {
+		await this.prisma.toolCall.create({
+			data: {
+				agentRunId,
+				toolName: toolUse.name,
+				toolType: "NATIVE",
+				input: toolUse.input as object,
+				output: error
+					? { error }
+					: typeof output === "object" && output !== null
+						? (output as object)
+						: { value: output },
+				status,
+				durationMs,
+				errorMessage: error ?? null,
+			},
+		});
 	}
 }

@@ -221,7 +221,7 @@ describe("AgentRunner", () => {
 		expect(logger.error).toHaveBeenCalled();
 	});
 
-	it("handles tool_use stop reason with error response", async () => {
+	it("handles tool_use stop reason with error when no gateway configured", async () => {
 		const toolUseResponse = makeResponse({
 			stopReason: "tool_use",
 			content: [
@@ -236,26 +236,143 @@ describe("AgentRunner", () => {
 
 		const result = await runner.run(makeTrigger());
 
-		// Tool call recorded as failed
 		expect(prisma.toolCall.create).toHaveBeenCalledWith(
 			expect.objectContaining({
 				data: expect.objectContaining({
 					toolName: "web_search",
 					status: "FAILED",
-					errorMessage: "No tool executors registered",
+					errorMessage: "No tool gateway configured",
 				}),
 			}),
 		);
 
-		// LLM called twice (initial + after tool error)
 		expect(mockChat).toHaveBeenCalledTimes(2);
-
-		// Final response returned
 		expect(result.responseText).toBe("TypeScript is a typed superset of JavaScript.");
-
-		// Tokens accumulated from both calls
 		expect(result.inputTokens).toBe(200);
 		expect(result.outputTokens).toBe(100);
+	});
+
+	it("calls tool gateway and feeds result back to LLM", async () => {
+		const mockClient = {
+			call: vi.fn().mockResolvedValue({
+				output: { stdout: "hello world", exit_code: 0 },
+				durationMs: 42,
+			}),
+		};
+
+		const toolRunner = new AgentRunner(
+			prisma as never,
+			{ chat: mockChat, getModel: mockGetModel } as never,
+			logger as never,
+			{
+				client: mockClient as never,
+				tools: [{ name: "bash", description: "Run shell", input_schema: { type: "object" } }],
+			},
+		);
+
+		const toolUseResponse = makeResponse({
+			stopReason: "tool_use",
+			content: [
+				{ type: "text", text: "Let me run that." },
+				{ type: "tool_use", id: "tool_1", name: "bash", input: { command: "echo hello world" } },
+			],
+		});
+		const finalResponse = makeResponse({
+			content: [{ type: "text", text: "The output is: hello world" }],
+		});
+		mockChat.mockResolvedValueOnce(toolUseResponse).mockResolvedValueOnce(finalResponse);
+
+		const result = await toolRunner.run(makeTrigger());
+
+		expect(mockClient.call).toHaveBeenCalledWith("bash", { command: "echo hello world" });
+
+		expect(prisma.toolCall.create).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({
+					toolName: "bash",
+					status: "COMPLETED",
+					durationMs: 42,
+				}),
+			}),
+		);
+
+		expect(result.responseText).toBe("The output is: hello world");
+		expect(mockChat).toHaveBeenCalledTimes(2);
+
+		const secondCall = mockChat.mock.calls[1][0];
+		const toolResultMsg = secondCall[secondCall.length - 1];
+		expect(toolResultMsg.role).toBe("user");
+		expect(toolResultMsg.content[0].type).toBe("tool_result");
+		expect(toolResultMsg.content[0].is_error).toBeUndefined();
+	});
+
+	it("handles tool gateway error and feeds error back to LLM", async () => {
+		const mockClient = {
+			call: vi.fn().mockResolvedValue({
+				output: null,
+				durationMs: 10,
+				error: "Command exited with code 1",
+			}),
+		};
+
+		const toolRunner = new AgentRunner(
+			prisma as never,
+			{ chat: mockChat, getModel: mockGetModel } as never,
+			logger as never,
+			{
+				client: mockClient as never,
+				tools: [{ name: "bash", description: "Run shell", input_schema: { type: "object" } }],
+			},
+		);
+
+		const toolUseResponse = makeResponse({
+			stopReason: "tool_use",
+			content: [{ type: "tool_use", id: "tool_1", name: "bash", input: { command: "exit 1" } }],
+		});
+		const finalResponse = makeResponse({
+			content: [{ type: "text", text: "That command failed." }],
+		});
+		mockChat.mockResolvedValueOnce(toolUseResponse).mockResolvedValueOnce(finalResponse);
+
+		const result = await toolRunner.run(makeTrigger());
+
+		expect(prisma.toolCall.create).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({
+					toolName: "bash",
+					status: "FAILED",
+					errorMessage: "Command exited with code 1",
+				}),
+			}),
+		);
+
+		expect(result.responseText).toBe("That command failed.");
+
+		const secondCall = mockChat.mock.calls[1][0];
+		const toolResultMsg = secondCall[secondCall.length - 1];
+		expect(toolResultMsg.content[0].is_error).toBe(true);
+	});
+
+	it("passes tool definitions to LLM chat when gateway configured", async () => {
+		const mockClient = { call: vi.fn() };
+
+		const toolRunner = new AgentRunner(
+			prisma as never,
+			{ chat: mockChat, getModel: mockGetModel } as never,
+			logger as never,
+			{
+				client: mockClient as never,
+				tools: [{ name: "bash", description: "Run shell", input_schema: { type: "object" } }],
+			},
+		);
+
+		mockChat.mockResolvedValue(makeResponse());
+		await toolRunner.run(makeTrigger());
+
+		const chatOptions = mockChat.mock.calls[0][1];
+		expect(chatOptions).toEqual({
+			tools: [{ name: "bash", description: "Run shell", input_schema: { type: "object" } }],
+		});
 	});
 
 	it("handles DM trigger type", async () => {
