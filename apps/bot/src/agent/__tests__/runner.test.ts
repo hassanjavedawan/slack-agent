@@ -221,7 +221,7 @@ describe("AgentRunner", () => {
 		expect(logger.error).toHaveBeenCalled();
 	});
 
-	it("handles tool_use stop reason with error when no tools configured", async () => {
+	it("handles tool_use stop reason with error when no gateway configured", async () => {
 		const toolUseResponse = makeResponse({
 			stopReason: "tool_use",
 			content: [
@@ -241,7 +241,7 @@ describe("AgentRunner", () => {
 				data: expect.objectContaining({
 					toolName: "web_search",
 					status: "FAILED",
-					errorMessage: "Tool not available",
+					errorMessage: "No tool gateway configured",
 				}),
 			}),
 		);
@@ -252,15 +252,9 @@ describe("AgentRunner", () => {
 		expect(result.outputTokens).toBe(100);
 	});
 
-	it("executes tool and feeds result back to LLM when tools configured", async () => {
-		const mockRegistry = {
-			has: vi.fn().mockReturnValue(true),
-			getDefinitions: vi
-				.fn()
-				.mockReturnValue([
-					{ name: "bash", description: "Run shell", input_schema: { type: "object" } },
-				]),
-			execute: vi.fn().mockResolvedValue({
+	it("calls tool gateway and feeds result back to LLM", async () => {
+		const mockClient = {
+			call: vi.fn().mockResolvedValue({
 				output: { stdout: "hello world", exit_code: 0 },
 				durationMs: 42,
 			}),
@@ -271,9 +265,8 @@ describe("AgentRunner", () => {
 			{ chat: mockChat, getModel: mockGetModel } as never,
 			logger as never,
 			{
-				registry: mockRegistry as never,
-				workspaceDir: "/data/workspaces/ws_test",
-				defaultTimeoutMs: 600_000,
+				client: mockClient as never,
+				tools: [{ name: "bash", description: "Run shell", input_schema: { type: "object" } }],
 			},
 		);
 
@@ -291,14 +284,7 @@ describe("AgentRunner", () => {
 
 		const result = await toolRunner.run(makeTrigger());
 
-		expect(mockRegistry.execute).toHaveBeenCalledWith(
-			"bash",
-			{ command: "echo hello world" },
-			expect.objectContaining({
-				workspaceId: WORKSPACE_ID,
-				workspaceDir: "/data/workspaces/ws_test",
-			}),
-		);
+		expect(mockClient.call).toHaveBeenCalledWith("bash", { command: "echo hello world" });
 
 		expect(prisma.toolCall.create).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -320,15 +306,9 @@ describe("AgentRunner", () => {
 		expect(toolResultMsg.content[0].is_error).toBeUndefined();
 	});
 
-	it("handles tool execution error and feeds error back to LLM", async () => {
-		const mockRegistry = {
-			has: vi.fn().mockReturnValue(true),
-			getDefinitions: vi
-				.fn()
-				.mockReturnValue([
-					{ name: "bash", description: "Run shell", input_schema: { type: "object" } },
-				]),
-			execute: vi.fn().mockResolvedValue({
+	it("handles tool gateway error and feeds error back to LLM", async () => {
+		const mockClient = {
+			call: vi.fn().mockResolvedValue({
 				output: null,
 				durationMs: 10,
 				error: "Command exited with code 1",
@@ -340,9 +320,8 @@ describe("AgentRunner", () => {
 			{ chat: mockChat, getModel: mockGetModel } as never,
 			logger as never,
 			{
-				registry: mockRegistry as never,
-				workspaceDir: "/data/workspaces/ws_test",
-				defaultTimeoutMs: 600_000,
+				client: mockClient as never,
+				tools: [{ name: "bash", description: "Run shell", input_schema: { type: "object" } }],
 			},
 		);
 
@@ -374,25 +353,16 @@ describe("AgentRunner", () => {
 		expect(toolResultMsg.content[0].is_error).toBe(true);
 	});
 
-	it("passes tool definitions to LLM chat when tools configured", async () => {
-		const mockRegistry = {
-			has: vi.fn().mockReturnValue(false),
-			getDefinitions: vi
-				.fn()
-				.mockReturnValue([
-					{ name: "bash", description: "Run shell", input_schema: { type: "object" } },
-				]),
-			execute: vi.fn(),
-		};
+	it("passes tool definitions to LLM chat when gateway configured", async () => {
+		const mockClient = { call: vi.fn() };
 
 		const toolRunner = new AgentRunner(
 			prisma as never,
 			{ chat: mockChat, getModel: mockGetModel } as never,
 			logger as never,
 			{
-				registry: mockRegistry as never,
-				workspaceDir: "/data/workspaces/ws_test",
-				defaultTimeoutMs: 600_000,
+				client: mockClient as never,
+				tools: [{ name: "bash", description: "Run shell", input_schema: { type: "object" } }],
 			},
 		);
 
