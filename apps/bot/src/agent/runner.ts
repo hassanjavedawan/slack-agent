@@ -1,6 +1,15 @@
 import type { PrismaClient } from "@openviktor/db";
 import type { ContentBlock, Logger, ToolUseBlock, TriggerType } from "@openviktor/shared";
 import type { LLMMessage } from "@openviktor/shared";
+import {
+	CONTEXT_WINDOW_SIZE,
+	type StoredMessage,
+	type ThreadSummaryData,
+	buildContextWindow,
+	generateThreadSummary,
+	needsNewSummary,
+	parseThreadSummary,
+} from "./context.js";
 import { type LLMGateway, extractText } from "./gateway.js";
 import { type PromptContext, buildSystemPrompt } from "./prompt.js";
 
@@ -81,7 +90,7 @@ export class AgentRunner {
 				},
 			});
 
-			const messages = await this.buildMessages(thread.id, systemPrompt);
+			const messages = await this.buildMessages(thread, systemPrompt);
 			const { responseText, inputTokens, outputTokens, costCents } = await this.execute(
 				agentRun.id,
 				messages,
@@ -151,21 +160,62 @@ export class AgentRunner {
 		}
 	}
 
-	private async buildMessages(threadId: string, systemPrompt: string): Promise<LLMMessage[]> {
-		const history = await this.prisma.message.findMany({
-			where: { agentRun: { threadId } },
+	private async buildMessages(
+		thread: { id: string; metadata: unknown },
+		systemPrompt: string,
+	): Promise<LLMMessage[]> {
+		const history: StoredMessage[] = await this.prisma.message.findMany({
+			where: { agentRun: { threadId: thread.id } },
 			orderBy: { createdAt: "asc" },
 		});
 
-		const messages: LLMMessage[] = [{ role: "system", content: systemPrompt }];
-
-		for (const msg of history) {
-			if (msg.role === "user" || msg.role === "assistant") {
-				messages.push({ role: msg.role, content: msg.content });
-			}
+		if (history.length <= CONTEXT_WINDOW_SIZE) {
+			return buildContextWindow(history, systemPrompt, null);
 		}
 
-		return messages;
+		const existingSummary = parseThreadSummary(thread.metadata);
+		const cutoff = history.length - CONTEXT_WINDOW_SIZE;
+		const olderMessages = history.slice(0, cutoff);
+
+		if (!needsNewSummary(olderMessages, existingSummary)) {
+			return buildContextWindow(history, systemPrompt, existingSummary?.summary ?? null);
+		}
+
+		let summary: string;
+		try {
+			summary = await generateThreadSummary(olderMessages, this.llm);
+		} catch (error) {
+			this.logger.warn(
+				{ threadId: thread.id, err: error },
+				"Failed to generate thread summary, using truncation",
+			);
+			return buildContextWindow(history, systemPrompt, existingSummary?.summary ?? null);
+		}
+
+		const lastOlder = olderMessages[olderMessages.length - 1];
+		const metaBase =
+			thread.metadata && typeof thread.metadata === "object" && !Array.isArray(thread.metadata)
+				? (thread.metadata as Record<string, unknown>)
+				: {};
+
+		await this.prisma.thread.update({
+			where: { id: thread.id },
+			data: {
+				metadata: {
+					...metaBase,
+					summary,
+					summarizedUpToId: lastOlder.id,
+					summarizedCount: olderMessages.length,
+				},
+			},
+		});
+
+		this.logger.info(
+			{ threadId: thread.id, summarizedCount: olderMessages.length },
+			"Generated thread summary",
+		);
+
+		return buildContextWindow(history, systemPrompt, summary);
 	}
 
 	private async execute(

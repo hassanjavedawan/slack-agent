@@ -59,7 +59,8 @@ function makeTrigger(overrides: Partial<RunTrigger> = {}): RunTrigger {
 function makePrisma() {
 	return {
 		thread: {
-			upsert: vi.fn().mockResolvedValue({ id: THREAD_ID }),
+			upsert: vi.fn().mockResolvedValue({ id: THREAD_ID, metadata: {} }),
+			update: vi.fn().mockResolvedValue({}),
 		},
 		agentRun: {
 			create: vi.fn().mockResolvedValue({ id: RUN_ID, systemPrompt: "system" }),
@@ -73,6 +74,19 @@ function makePrisma() {
 			create: vi.fn().mockResolvedValue({}),
 		},
 	};
+}
+
+function makeHistoryMessages(count: number) {
+	const messages = [];
+	for (let i = 0; i < count; i++) {
+		messages.push({
+			id: `msg_${i}`,
+			role: i % 2 === 0 ? "user" : "assistant",
+			content: `Message ${i}`,
+			createdAt: new Date(Date.UTC(2026, 0, 1, 0, 0, i)),
+		});
+	}
+	return messages;
 }
 
 function makeLogger() {
@@ -174,9 +188,9 @@ describe("AgentRunner", () => {
 
 	it("loads conversation history from previous thread messages", async () => {
 		prisma.message.findMany.mockResolvedValue([
-			{ role: "user", content: "First question", createdAt: new Date("2026-01-01") },
-			{ role: "assistant", content: "First answer", createdAt: new Date("2026-01-02") },
-			{ role: "user", content: "What is TypeScript?", createdAt: new Date("2026-01-03") },
+			{ id: "m1", role: "user", content: "First question", createdAt: new Date("2026-01-01") },
+			{ id: "m2", role: "assistant", content: "First answer", createdAt: new Date("2026-01-02") },
+			{ id: "m3", role: "user", content: "What is TypeScript?", createdAt: new Date("2026-01-03") },
 		]);
 		mockChat.mockResolvedValue(makeResponse());
 
@@ -284,5 +298,93 @@ describe("AgentRunner", () => {
 				}),
 			}),
 		);
+	});
+
+	it("applies sliding window and generates summary for long threads", async () => {
+		const history = makeHistoryMessages(25);
+		prisma.message.findMany.mockResolvedValue(history);
+
+		// First call: summary generation; second call: actual response
+		const summaryResponse = makeResponse({
+			content: [{ type: "text", text: "Summary of earlier conversation." }],
+		});
+		const mainResponse = makeResponse({
+			content: [{ type: "text", text: "Here is my answer." }],
+		});
+		mockChat.mockResolvedValueOnce(summaryResponse).mockResolvedValueOnce(mainResponse);
+
+		const result = await runner.run(makeTrigger());
+
+		expect(result.responseText).toBe("Here is my answer.");
+
+		// Summary generation called LLM once, then main chat called once
+		expect(mockChat).toHaveBeenCalledTimes(2);
+
+		// Thread updated with summary metadata
+		expect(prisma.thread.update).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({
+					metadata: expect.objectContaining({
+						summary: "Summary of earlier conversation.",
+						summarizedUpToId: "msg_4",
+						summarizedCount: 5,
+					}),
+				}),
+			}),
+		);
+
+		// Main LLM call should only have system + 20 recent messages
+		const mainChatCall = mockChat.mock.calls[1][0];
+		expect(mainChatCall).toHaveLength(21); // system + 20 messages
+		expect(mainChatCall[0].role).toBe("system");
+		expect(mainChatCall[0].content).toContain("Earlier in this conversation");
+		expect(mainChatCall[0].content).toContain("Summary of earlier conversation.");
+	});
+
+	it("reuses cached summary when still valid", async () => {
+		const history = makeHistoryMessages(25);
+		prisma.message.findMany.mockResolvedValue(history);
+		prisma.thread.upsert.mockResolvedValue({
+			id: THREAD_ID,
+			metadata: {
+				summary: "Cached summary from before.",
+				summarizedUpToId: "msg_4",
+				summarizedCount: 5,
+			},
+		});
+		mockChat.mockResolvedValue(makeResponse());
+
+		await runner.run(makeTrigger());
+
+		// Only one LLM call (no summary generation needed)
+		expect(mockChat).toHaveBeenCalledTimes(1);
+
+		// Thread.update not called for summary
+		expect(prisma.thread.update).not.toHaveBeenCalled();
+
+		// System prompt includes cached summary
+		const chatCall = mockChat.mock.calls[0][0];
+		expect(chatCall[0].content).toContain("Cached summary from before.");
+	});
+
+	it("falls back to truncation when summary generation fails", async () => {
+		const history = makeHistoryMessages(25);
+		prisma.message.findMany.mockResolvedValue(history);
+
+		// Summary generation fails, main response succeeds
+		mockChat.mockRejectedValueOnce(new Error("LLM timeout")).mockResolvedValueOnce(makeResponse());
+
+		const result = await runner.run(makeTrigger());
+
+		expect(result.responseText).toBe("Hello from Viktor!");
+		expect(logger.warn).toHaveBeenCalledWith(
+			expect.objectContaining({ threadId: THREAD_ID }),
+			"Failed to generate thread summary, using truncation",
+		);
+
+		// Main call still only gets windowed messages (no summary in prompt)
+		const chatCall = mockChat.mock.calls[1][0];
+		expect(chatCall).toHaveLength(21); // system + 20 messages
+		expect(chatCall[0].content).not.toContain("Earlier in this conversation");
 	});
 });
