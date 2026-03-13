@@ -27,6 +27,10 @@ const envSchema = z.object({
 	MAX_CONCURRENT_RUNS: z.coerce.number().default(16),
 	TOOL_TIMEOUT_MS: z.coerce.number().default(600_000),
 	AGENT_TIMEOUT_MS: z.coerce.number().default(300_000),
+	BASH_DEFAULT_TIMEOUT_MS: z.coerce.number().default(120_000),
+
+	// Tool gateway
+	TOOL_GATEWAY_PORT: z.coerce.number().default(3001),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;

@@ -31,6 +31,13 @@ export class ToolTimeoutError extends AppError {
 	}
 }
 
+export class ToolExecutionError extends AppError {
+	constructor(toolName: string, message: string, cause?: unknown) {
+		super(`Tool "${toolName}" failed: ${message}`, "TOOL_EXECUTION_ERROR", 500, cause);
+		this.name = "ToolExecutionError";
+	}
+}
+
 export class SlackError extends AppError {
 	constructor(message: string, cause?: unknown) {
 		super(message, "SLACK_ERROR", 502, cause);

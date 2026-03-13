@@ -19,6 +19,7 @@
         "@anthropic-ai/sdk": "^0.78.0",
         "@openviktor/db": "workspace:*",
         "@openviktor/shared": "workspace:*",
+        "@openviktor/tools": "workspace:*",
         "@slack/bolt": "^3.22.0",
       },
       "devDependencies": {
