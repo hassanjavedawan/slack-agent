@@ -2,8 +2,8 @@
  * Modal tool runner — invoked by the Python Modal app via subprocess.
  * Receives a JSON payload as argv[1], executes the tool, and prints the result as JSON.
  */
-import { createNativeRegistry } from "@openviktor/tools";
-import { ensureWorkspace } from "@openviktor/tools";
+import { createNativeRegistry } from "../../../packages/tools/src/index.js";
+import { ensureWorkspace } from "../../../packages/tools/src/index.js";
 
 interface RunnerInput {
 	tool_name: string;
