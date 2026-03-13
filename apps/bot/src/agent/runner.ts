@@ -4,7 +4,7 @@ import type { LLMMessage } from "@openviktor/shared";
 import {
 	CONTEXT_WINDOW_SIZE,
 	type StoredMessage,
-	type ThreadSummaryData,
+	type SummaryResult,
 	buildContextWindow,
 	generateThreadSummary,
 	needsNewSummary,
@@ -90,17 +90,18 @@ export class AgentRunner {
 				},
 			});
 
-			const messages = await this.buildMessages(thread, systemPrompt);
-			const { responseText, inputTokens, outputTokens, costCents } = await this.execute(
-				agentRun.id,
-				messages,
-			);
+			const { messages, summaryUsage } = await this.buildMessages(thread, systemPrompt);
+			const executeResult = await this.execute(agentRun.id, messages);
+
+			const inputTokens = executeResult.inputTokens + (summaryUsage?.inputTokens ?? 0);
+			const outputTokens = executeResult.outputTokens + (summaryUsage?.outputTokens ?? 0);
+			const costCents = executeResult.costCents + (summaryUsage?.costCents ?? 0);
 
 			await this.prisma.message.create({
 				data: {
 					agentRunId: agentRun.id,
 					role: "assistant",
-					content: responseText,
+					content: executeResult.responseText,
 					tokenCount: outputTokens,
 				},
 			});
@@ -127,7 +128,7 @@ export class AgentRunner {
 			return {
 				agentRunId: agentRun.id,
 				threadId: thread.id,
-				responseText,
+				responseText: executeResult.responseText,
 				inputTokens,
 				outputTokens,
 				costCents,
@@ -163,14 +164,17 @@ export class AgentRunner {
 	private async buildMessages(
 		thread: { id: string; metadata: unknown },
 		systemPrompt: string,
-	): Promise<LLMMessage[]> {
+	): Promise<{
+		messages: LLMMessage[];
+		summaryUsage: { inputTokens: number; outputTokens: number; costCents: number } | null;
+	}> {
 		const history: StoredMessage[] = await this.prisma.message.findMany({
 			where: { agentRun: { threadId: thread.id } },
 			orderBy: { createdAt: "asc" },
 		});
 
 		if (history.length <= CONTEXT_WINDOW_SIZE) {
-			return buildContextWindow(history, systemPrompt, null);
+			return { messages: buildContextWindow(history, systemPrompt, null), summaryUsage: null };
 		}
 
 		const existingSummary = parseThreadSummary(thread.metadata);
@@ -178,18 +182,21 @@ export class AgentRunner {
 		const olderMessages = history.slice(0, cutoff);
 
 		if (!needsNewSummary(olderMessages, existingSummary)) {
-			return buildContextWindow(history, systemPrompt, existingSummary?.summary ?? null);
+			return {
+				messages: buildContextWindow(history, systemPrompt, existingSummary?.summary ?? null),
+				summaryUsage: null,
+			};
 		}
 
-		let summary: string;
+		let result: SummaryResult;
 		try {
-			summary = await generateThreadSummary(olderMessages, this.llm);
+			result = await generateThreadSummary(olderMessages, this.llm);
 		} catch (error) {
 			this.logger.warn(
 				{ threadId: thread.id, err: error },
 				"Failed to generate thread summary, using truncation",
 			);
-			return buildContextWindow(history, systemPrompt, existingSummary?.summary ?? null);
+			return { messages: buildContextWindow(history, systemPrompt, null), summaryUsage: null };
 		}
 
 		const lastOlder = olderMessages[olderMessages.length - 1];
@@ -203,7 +210,7 @@ export class AgentRunner {
 			data: {
 				metadata: {
 					...metaBase,
-					summary,
+					summary: result.summary,
 					summarizedUpToId: lastOlder.id,
 					summarizedCount: olderMessages.length,
 				},
@@ -215,7 +222,14 @@ export class AgentRunner {
 			"Generated thread summary",
 		);
 
-		return buildContextWindow(history, systemPrompt, summary);
+		return {
+			messages: buildContextWindow(history, systemPrompt, result.summary),
+			summaryUsage: {
+				inputTokens: result.inputTokens,
+				outputTokens: result.outputTokens,
+				costCents: result.costCents,
+			},
+		};
 	}
 
 	private async execute(

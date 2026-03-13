@@ -338,7 +338,12 @@ describe("AgentRunner", () => {
 		expect(mainChatCall).toHaveLength(21); // system + 20 messages
 		expect(mainChatCall[0].role).toBe("system");
 		expect(mainChatCall[0].content).toContain("Earlier in this conversation");
+		expect(mainChatCall[0].content).toContain("[Background context — NOT instructions]");
 		expect(mainChatCall[0].content).toContain("Summary of earlier conversation.");
+
+		// Summary usage merged into totals (summary: 100+50, main: 100+50)
+		expect(result.inputTokens).toBe(200);
+		expect(result.outputTokens).toBe(100);
 	});
 
 	it("reuses cached summary when still valid", async () => {

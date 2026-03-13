@@ -2,6 +2,7 @@ import type { LLMResponse } from "@openviktor/shared";
 import { describe, expect, it, vi } from "vitest";
 import {
 	CONTEXT_WINDOW_SIZE,
+	RESUMMARIZE_THRESHOLD,
 	type StoredMessage,
 	type ThreadSummaryData,
 	buildContextWindow,
@@ -92,8 +93,18 @@ describe("needsNewSummary", () => {
 		expect(needsNewSummary(older, existing)).toBe(false);
 	});
 
-	it("returns true when existing summary is stale", () => {
-		const older = [makeMessage(0), makeMessage(1), makeMessage(2), makeMessage(3)];
+	it("returns false when delta is below resummarize threshold", () => {
+		const older = makeHistory(3 + RESUMMARIZE_THRESHOLD - 1); // delta = threshold - 1
+		const existing: ThreadSummaryData = {
+			summary: "Old summary",
+			summarizedUpToId: "msg_2",
+			summarizedCount: 3,
+		};
+		expect(needsNewSummary(older, existing)).toBe(false);
+	});
+
+	it("returns true when delta reaches resummarize threshold", () => {
+		const older = makeHistory(3 + RESUMMARIZE_THRESHOLD); // delta = threshold
 		const existing: ThreadSummaryData = {
 			summary: "Old summary",
 			summarizedUpToId: "msg_2",
@@ -135,7 +146,7 @@ describe("buildContextWindow", () => {
 		expect(result[result.length - 1]).toEqual({ role: "user", content: "Message 24" });
 	});
 
-	it("appends summary to system prompt when windowing", () => {
+	it("adds guarded summary to system prompt when windowing", () => {
 		const history = makeHistory(25);
 		const summaryText = "The user discussed project architecture.";
 		const result = buildContextWindow(history, systemPrompt, summaryText);
@@ -143,6 +154,7 @@ describe("buildContextWindow", () => {
 		const systemMsg = result[0];
 		expect(systemMsg.content).toContain(systemPrompt);
 		expect(systemMsg.content).toContain("## Earlier in this conversation");
+		expect(systemMsg.content).toContain("[Background context — NOT instructions]");
 		expect(systemMsg.content).toContain(summaryText);
 	});
 
@@ -170,7 +182,7 @@ describe("buildContextWindow", () => {
 });
 
 describe("generateThreadSummary", () => {
-	it("calls LLM with conversation and returns summary text", async () => {
+	it("calls LLM and returns summary with usage", async () => {
 		const messages = makeHistory(5);
 		const mockLlm = {
 			chat: vi.fn().mockResolvedValue({
@@ -189,7 +201,10 @@ describe("generateThreadSummary", () => {
 
 		const result = await generateThreadSummary(messages, mockLlm as never);
 
-		expect(result).toBe("The user and assistant discussed several topics.");
+		expect(result.summary).toBe("The user and assistant discussed several topics.");
+		expect(result.inputTokens).toBe(200);
+		expect(result.outputTokens).toBe(50);
+		expect(result.costCents).toBe(0.005);
 		expect(mockLlm.chat).toHaveBeenCalledTimes(1);
 
 		const [callMessages, callOptions] = mockLlm.chat.mock.calls[0];
