@@ -75,7 +75,7 @@ def tool_bash(args: dict, workspace_dir: str, timeout_ms: int) -> dict:
             text=True,
             timeout=timeout_s,
             cwd=workspace_dir,
-            env={**os.environ, "HOME": workspace_dir},
+            env={"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": workspace_dir, "LANG": os.environ.get("LANG", "C.UTF-8")},
             stdin=subprocess.DEVNULL,
         )
         stdout = result.stdout[:MAX_OUTPUT_BYTES]
@@ -98,9 +98,10 @@ def tool_file_read(args: dict, workspace_dir: str) -> dict:
         all_lines = f.readlines()
 
     offset = max(int(args.get("offset", 1)), 1)
-    limit = args.get("limit")
+    raw_limit = args.get("limit")
+    limit = int(raw_limit) if raw_limit is not None else None
     start = offset - 1
-    sliced = all_lines[start : start + int(limit)] if limit else all_lines[start:]
+    sliced = all_lines[start : start + limit] if limit is not None else all_lines[start:]
 
     content = "".join(f"{start + i + 1:>6}\t{line}" for i, line in enumerate(sliced))
     if len(content) > MAX_OUTPUT_BYTES:
@@ -298,7 +299,7 @@ class ToolRequest(BaseModel):
 def execute(request: ToolRequest) -> dict:
     """Execute a tool in an isolated Modal container."""
     auth_token = os.environ.get("TOOL_TOKEN", "")
-    if auth_token and request.auth_token != auth_token:
+    if not auth_token or request.auth_token != auth_token:
         return {"error": "Unauthorized"}
 
     if request.tool_name not in TOOL_DISPATCH:

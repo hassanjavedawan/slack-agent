@@ -1,6 +1,6 @@
 /**
  * Modal tool runner — invoked by the Python Modal app via subprocess.
- * Receives a JSON payload as argv[1], executes the tool, and prints the result as JSON.
+ * Receives a JSON payload as argv[2], executes the tool, and prints the result as JSON.
  */
 import { createNativeRegistry } from "../../../packages/tools/src/index.js";
 import { ensureWorkspace } from "../../../packages/tools/src/index.js";

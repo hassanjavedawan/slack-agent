@@ -36,6 +36,14 @@ const envSchema = z.object({
 	TOOL_BACKEND: z.enum(["local", "modal"]).default("local"),
 	MODAL_ENDPOINT_URL: z.string().url().optional(),
 	MODAL_AUTH_TOKEN: z.string().min(1).optional(),
+}).superRefine((data, ctx) => {
+	if (data.TOOL_BACKEND === "modal" && !data.MODAL_ENDPOINT_URL) {
+		ctx.addIssue({
+			code: z.ZodIssueCode.custom,
+			message: "MODAL_ENDPOINT_URL is required when TOOL_BACKEND=modal",
+			path: ["MODAL_ENDPOINT_URL"],
+		});
+	}
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;

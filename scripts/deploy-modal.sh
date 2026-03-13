@@ -16,15 +16,22 @@ if ! command -v modal &>/dev/null; then
 fi
 
 # ─── Check secret exists ────────────────────────────────
-if ! modal secret list 2>/dev/null | grep -q "openviktor-tools"; then
+secret_output=$(modal secret list 2>&1) || {
+  echo "Error: 'modal secret list' failed:"
+  echo "  $secret_output"
+  exit 1
+}
+if ! echo "$secret_output" | grep -q "openviktor-tools"; then
   echo "Modal secret 'openviktor-tools' not found."
   echo ""
-  read -rp "Enter a TOOL_TOKEN for authenticating requests: " token
+  read -rsp "Enter a TOOL_TOKEN for authenticating requests: " token
+  echo ""
   if [ -z "$token" ]; then
     echo "Error: token cannot be empty."
     exit 1
   fi
   modal secret create openviktor-tools "TOOL_TOKEN=$token"
+  unset token
   echo ""
 fi
 

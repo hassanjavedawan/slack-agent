@@ -6,8 +6,8 @@ Optional deployment backend that runs tool execution on [Modal.com](https://moda
 
 When `TOOL_BACKEND=modal`, the bot delegates tool execution to a Modal web endpoint instead of running tools in-process. Each tool call is handled by an isolated container with a persistent workspace volume mounted at `/data/workspaces`.
 
-```
-Bot (Slack + Agent loop) → Tool Gateway → ModalToolBackend → HTTP → Modal Web Endpoint → Bun tool runner
+```text
+Bot (Slack + Agent loop) → Tool Gateway → ModalToolBackend → HTTP → Modal Web Endpoint → Python tool executors
 ```
 
 ## Setup
