@@ -31,6 +31,11 @@ const envSchema = z.object({
 
 	// Tool gateway
 	TOOL_GATEWAY_PORT: z.coerce.number().default(3001),
+
+	// Tool backend
+	TOOL_BACKEND: z.enum(["local", "modal"]).default("local"),
+	MODAL_ENDPOINT_URL: z.string().url().optional(),
+	MODAL_AUTH_TOKEN: z.string().min(1).optional(),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;
