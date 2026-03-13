@@ -24,8 +24,10 @@ const MAX_TOOL_ROUNDS = 20;
 
 export interface RunTrigger {
 	workspaceId: string;
-	memberId: string;
+	memberId: string | null;
 	triggerType: TriggerType;
+	cronJobId?: string;
+	model?: string;
 	slackChannel: string;
 	slackThreadTs: string;
 	userMessage: string;
@@ -59,6 +61,10 @@ export class AgentRunner {
 		this.toolConfig = toolConfig ?? null;
 	}
 
+	updateToolConfig(config: ToolConfig): void {
+		this.toolConfig = config;
+	}
+
 	async run(trigger: RunTrigger): Promise<RunResult> {
 		const startTime = Date.now();
 
@@ -81,13 +87,16 @@ export class AgentRunner {
 
 		const systemPrompt = buildSystemPrompt(trigger.promptContext);
 
+		const model = trigger.model ?? this.llm.getModel();
+
 		const agentRun = await this.prisma.agentRun.create({
 			data: {
 				workspaceId: trigger.workspaceId,
 				threadId: thread.id,
 				triggeredBy: trigger.memberId,
 				triggerType: trigger.triggerType,
-				model: this.llm.getModel(),
+				cronJobId: trigger.cronJobId ?? null,
+				model,
 				systemPrompt,
 				startedAt: new Date(),
 				status: "RUNNING",
@@ -108,7 +117,7 @@ export class AgentRunner {
 			});
 
 			const { messages, summaryUsage } = await this.buildMessages(thread, systemPrompt);
-			const executeResult = await this.execute(agentRun.id, messages);
+			const executeResult = await this.execute(agentRun.id, messages, trigger.model);
 
 			const inputTokens = executeResult.inputTokens + (summaryUsage?.inputTokens ?? 0);
 			const outputTokens = executeResult.outputTokens + (summaryUsage?.outputTokens ?? 0);
@@ -252,6 +261,7 @@ export class AgentRunner {
 	private async execute(
 		agentRunId: string,
 		messages: LLMMessage[],
+		modelOverride?: string,
 	): Promise<{
 		responseText: string;
 		inputTokens: number;
@@ -263,8 +273,10 @@ export class AgentRunner {
 		let totalCostCents = 0;
 
 		const chatOptions: ChatOptions | undefined = this.toolConfig
-			? { tools: this.toolConfig.tools }
-			: undefined;
+			? { tools: this.toolConfig.tools, model: modelOverride }
+			: modelOverride
+				? { model: modelOverride }
+				: undefined;
 
 		for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
 			const response = await this.llm.chat(messages, chatOptions);

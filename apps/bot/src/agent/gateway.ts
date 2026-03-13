@@ -12,6 +12,7 @@ export interface ChatOptions {
 	tools?: LLMToolDefinition[];
 	toolChoice?: "auto" | "any" | { type: "tool"; name: string };
 	maxTokens?: number;
+	model?: string;
 }
 
 export class LLMGateway {
@@ -31,7 +32,7 @@ export class LLMGateway {
 
 	async chat(messages: LLMMessage[], options?: ChatOptions): Promise<LLMResponse> {
 		return this.provider.chat({
-			model: this.model,
+			model: options?.model ?? this.model,
 			messages,
 			maxTokens: options?.maxTokens ?? this.defaultMaxTokens,
 			tools: options?.tools,
