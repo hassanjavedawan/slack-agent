@@ -47,7 +47,7 @@ describe("buildSystemPrompt", () => {
 		const prompt = buildSystemPrompt(makeContext());
 		expect(prompt).toContain("OpenViktor");
 		expect(prompt).toContain("## Guidelines");
-		expect(prompt).toContain("Format responses using Markdown");
+		expect(prompt).toContain("Format responses using Slack mrkdwn");
 	});
 
 	it("includes startup instructions for read_learnings", () => {

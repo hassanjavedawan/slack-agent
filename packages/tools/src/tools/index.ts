@@ -144,81 +144,97 @@ export function createNativeRegistry(config: RegistryConfig = {}): ToolRegistry 
 
 	if (config.slackToken) {
 		const slackComms = createSlackToolExecutors(config.slackToken);
+		const local = { localOnly: true };
 		registry.register(
 			"coworker_slack_history",
 			coworkerSlackHistoryDefinition,
 			slackComms.coworker_slack_history,
+			local,
 		);
 		registry.register(
 			"coworker_send_slack_message",
 			coworkerSendSlackMessageDefinition,
 			slackComms.coworker_send_slack_message,
+			local,
 		);
 		registry.register(
 			"coworker_slack_react",
 			coworkerSlackReactDefinition,
 			slackComms.coworker_slack_react,
+			local,
 		);
 		registry.register(
 			"coworker_delete_slack_message",
 			coworkerDeleteSlackMessageDefinition,
 			slackComms.coworker_delete_slack_message,
+			local,
 		);
 		registry.register(
 			"coworker_update_slack_message",
 			coworkerUpdateSlackMessageDefinition,
 			slackComms.coworker_update_slack_message,
+			local,
 		);
 		registry.register(
 			"coworker_upload_to_slack",
 			coworkerUploadToSlackDefinition,
 			slackComms.coworker_upload_to_slack,
+			local,
 		);
 		registry.register(
 			"coworker_download_from_slack",
 			coworkerDownloadFromSlackDefinition,
 			slackComms.coworker_download_from_slack,
+			local,
 		);
 		const slackAdmin = createSlackAdminExecutors(config.slackToken);
 		registry.register(
 			"coworker_list_slack_channels",
 			coworkerListSlackChannelsDefinition,
 			slackAdmin.coworker_list_slack_channels,
+			local,
 		);
 		registry.register(
 			"coworker_join_slack_channels",
 			coworkerJoinSlackChannelsDefinition,
 			slackAdmin.coworker_join_slack_channels,
+			local,
 		);
 		registry.register(
 			"coworker_open_slack_conversation",
 			coworkerOpenSlackConversationDefinition,
 			slackAdmin.coworker_open_slack_conversation,
+			local,
 		);
 		registry.register(
 			"coworker_leave_slack_channels",
 			coworkerLeaveSlackChannelsDefinition,
 			slackAdmin.coworker_leave_slack_channels,
+			local,
 		);
 		registry.register(
 			"coworker_list_slack_users",
 			coworkerListSlackUsersDefinition,
 			slackAdmin.coworker_list_slack_users,
+			local,
 		);
 		registry.register(
 			"coworker_invite_slack_user_to_team",
 			coworkerInviteSlackUserToTeamDefinition,
 			slackAdmin.coworker_invite_slack_user_to_team,
+			local,
 		);
 		registry.register(
 			"coworker_get_slack_reactions",
 			coworkerGetSlackReactionsDefinition,
 			slackAdmin.coworker_get_slack_reactions,
+			local,
 		);
 		registry.register(
 			"coworker_report_issue",
 			coworkerReportIssueDefinition,
 			slackAdmin.coworker_report_issue,
+			local,
 		);
 	}
 
