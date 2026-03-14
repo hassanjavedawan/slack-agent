@@ -175,7 +175,9 @@ export class PipedreamClient {
 
 		if (!response.ok) {
 			const text = await response.text();
-			throw new Error(`Pipedream proxy error (${response.status} ${opts.method} ${opts.url}): ${text}`);
+			throw new Error(
+				`Pipedream proxy error (${response.status} ${opts.method} ${opts.url}): ${text}`,
+			);
 		}
 
 		if (response.status === 204) return undefined;

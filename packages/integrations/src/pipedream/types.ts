@@ -36,7 +36,8 @@ export interface PipedreamAction {
 
 export interface PipedreamActionResult {
 	exports?: Record<string, unknown>;
-	return_value?: unknown;
+	/** The action's return value (Pipedream API field name is `ret`) */
+	ret?: unknown;
 	error?: string;
 }
 
@@ -44,8 +45,7 @@ export interface PipedreamAccount {
 	id: string;
 	name?: string;
 	app?: { name_slug: string; name: string };
-	auth_provision_id?: string;
-	external_user_id?: string;
+	external_id?: string;
 	healthy?: boolean;
 	dead?: boolean;
 	created_at?: string;

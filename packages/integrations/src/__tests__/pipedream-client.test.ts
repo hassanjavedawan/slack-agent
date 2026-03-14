@@ -69,7 +69,7 @@ describe("PipedreamClient", () => {
 			}
 
 			if (url.includes("/actions/run")) {
-				return { return_value: { success: true, rows_added: 1 } };
+				return { ret: { success: true, rows_added: 1 } };
 			}
 
 			if (url.includes("/actions/configure")) {
@@ -88,9 +88,8 @@ describe("PipedreamClient", () => {
 				return {
 					data: [
 						{
-							id: "acct-123",
+							id: "apn-123",
 							app: { name_slug: "google_sheets", name: "Google Sheets" },
-							auth_provision_id: "apn-123",
 							healthy: true,
 						},
 					],
@@ -141,7 +140,7 @@ describe("PipedreamClient", () => {
 			configuredProps: { sheetId: "sheet-1" },
 		});
 
-		expect(result.return_value).toEqual({ success: true, rows_added: 1 });
+		expect(result.ret).toEqual({ success: true, rows_added: 1 });
 	});
 
 	it("configures dynamic props", async () => {

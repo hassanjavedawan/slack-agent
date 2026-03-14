@@ -140,8 +140,7 @@ export function createListWorkspaceConnectionsExecutor(prisma: PrismaClient): To
 
 export function createConnectIntegrationExecutor(
 	client: PipedreamClient,
-	prisma: PrismaClient,
-	slackToken: string,
+	onLinkGenerated?: (workspaceId: string, appSlug: string) => void,
 ): ToolExecutor {
 	return async (args, ctx) => {
 		const appSlug = args.app_slug as string;
@@ -152,49 +151,16 @@ export function createConnectIntegrationExecutor(
 		const externalUserId = `workspace_${ctx.workspaceId}`;
 		const connectToken = await client.createConnectToken(externalUserId);
 
-		const workspace = await prisma.workspace.findUnique({
-			where: { id: ctx.workspaceId },
-			select: { slackBotToken: true },
-		});
+		const separator = connectToken.connect_link_url.includes("?") ? "&" : "?";
+		const connectLink = `${connectToken.connect_link_url}${separator}app=${encodeURIComponent(appSlug)}`;
 
-		const token = workspace?.slackBotToken ?? slackToken;
-
-		const response = await fetch("https://slack.com/api/chat.postMessage", {
-			method: "POST",
-			headers: {
-				Authorization: `Bearer ${token}`,
-				"Content-Type": "application/json",
-			},
-			body: JSON.stringify({
-				channel: ctx.workspaceId,
-				text: `Connect *${appSlug}* integration: ${connectToken.connect_link_url}`,
-				blocks: [
-					{
-						type: "section",
-						text: {
-							type: "mrkdwn",
-							text: `:link: *Connect ${appSlug}*\n\nClick the link below to authorize this integration:\n${connectToken.connect_link_url}\n\nOnce you've completed authorization, tell me and I'll sync the connection.`,
-						},
-					},
-				],
-			}),
-		});
-
-		if (!response.ok) {
-			return {
-				output: {
-					connect_link: connectToken.connect_link_url,
-					message: `Could not post to Slack, but here's the link: ${connectToken.connect_link_url}`,
-				},
-				durationMs: 0,
-			};
-		}
+		onLinkGenerated?.(ctx.workspaceId, appSlug);
 
 		return {
 			output: {
-				connect_link: connectToken.connect_link_url,
+				connect_link: connectLink,
 				expires_at: connectToken.expires_at,
-				message: `Connect link posted to Slack. User should click the link to authorize ${appSlug}. After they complete authorization, call sync_workspace_connections to register the new tools.`,
+				message: `Share this link with the user to authorize ${appSlug}. The connection will be detected automatically once you complete authorization.`,
 			},
 			durationMs: 0,
 		};

@@ -1,9 +1,6 @@
 import type { PipedreamAction } from "@openviktor/integrations";
 import { describe, expect, it } from "vitest";
-import {
-	extractToolSchemas,
-	generateSkillContent,
-} from "../tools/integrations/pipedream-tools.js";
+import { extractToolSchemas, generateSkillContent } from "../tools/integrations/pipedream-tools.js";
 
 describe("generateSkillContent", () => {
 	const mockActions: PipedreamAction[] = [
@@ -96,9 +93,9 @@ describe("generateSkillContent", () => {
 
 		const schemas = extractToolSchemas(content);
 		expect(schemas).not.toBeNull();
-		expect(schemas!.length).toBeGreaterThan(0);
+		expect(schemas?.length).toBeGreaterThan(0);
 
-		const names = schemas!.map((s) => s.name);
+		const names = schemas?.map((s) => s.name);
 		expect(names).toContain("mcp_pd_google_sheets_add_single_row");
 		expect(names).toContain("mcp_pd_google_sheets_update_row");
 		expect(names).toContain("mcp_pd_google_sheets_configure");
@@ -111,12 +108,14 @@ describe("generateSkillContent", () => {
 
 	it("includes correct input_schema in embedded tool schemas", () => {
 		const content = generateSkillContent("google_sheets", "Google Sheets", mockActions);
-		const schemas = extractToolSchemas(content)!;
+		const schemas = extractToolSchemas(content);
+		expect(schemas).not.toBeNull();
 
-		const addRow = schemas.find((s) => s.name === "mcp_pd_google_sheets_add_single_row")!;
-		expect(addRow.description).toBe("Add a single row of data to a Google Sheet");
-		expect(addRow.input_schema.type).toBe("object");
-		const props = addRow.input_schema.properties as Record<string, unknown>;
+		const addRow = schemas?.find((s) => s.name === "mcp_pd_google_sheets_add_single_row");
+		expect(addRow).toBeDefined();
+		expect(addRow?.description).toBe("Add a single row of data to a Google Sheet");
+		expect(addRow?.input_schema.type).toBe("object");
+		const props = addRow?.input_schema.properties as Record<string, unknown>;
 		expect(props).toHaveProperty("sheetId");
 		expect(props).toHaveProperty("worksheetId");
 		expect(props).toHaveProperty("myColumnData");

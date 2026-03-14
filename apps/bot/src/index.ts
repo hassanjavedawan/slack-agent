@@ -35,6 +35,7 @@ import {
 	listCronJobsDefinition,
 	triggerCronJobDefinition,
 } from "./cron/index.js";
+import { IntegrationWatcher } from "./integrations/watcher.js";
 import {
 	createBotFilter,
 	createDeduplicator,
@@ -46,7 +47,6 @@ import {
 import { createConcurrencyLimiter } from "./thread/concurrency.js";
 import { ThreadLock } from "./thread/lock.js";
 import { StaleThreadDetector } from "./thread/stale.js";
-import { IntegrationWatcher } from "./integrations/watcher.js";
 import { createToolGateway, registerWorkspaceToken } from "./tool-gateway/server.js";
 
 const logger = createLogger("bot");
@@ -165,7 +165,12 @@ async function main(): Promise<void> {
 	const local = { localOnly: true };
 	registry.register("create_cron_job", createCronJobDefinition, cronTools.create_cron_job, local);
 	registry.register("delete_cron_job", deleteCronJobDefinition, cronTools.delete_cron_job, local);
-	registry.register("trigger_cron_job", triggerCronJobDefinition, cronTools.trigger_cron_job, local);
+	registry.register(
+		"trigger_cron_job",
+		triggerCronJobDefinition,
+		cronTools.trigger_cron_job,
+		local,
+	);
 	registry.register("list_cron_jobs", listCronJobsDefinition, cronTools.list_cron_jobs, local);
 
 	// Pipedream integration tools
@@ -217,7 +222,7 @@ async function main(): Promise<void> {
 			"connect_integration",
 			connectIntegrationDefinition,
 			createConnectIntegrationExecutor(pdClient, (workspaceId, appSlug) => {
-				integrationWatcher!.watch(workspaceId, appSlug);
+				integrationWatcher?.watch(workspaceId, appSlug);
 			}),
 			local,
 		);

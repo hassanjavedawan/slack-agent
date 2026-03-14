@@ -38,7 +38,7 @@ export function createPipedreamActionExecutor(
 		}
 
 		const configuredProps: Record<string, unknown> = { ...args };
-		delete configuredProps._agentRunId;
+		configuredProps._agentRunId = undefined;
 
 		if (action.appPropName) {
 			configuredProps[action.appPropName] = {
@@ -240,7 +240,7 @@ export function generateSkillContent(
 	appName: string,
 	actions: PipedreamAction[],
 ): string {
-	const lines: string[] = ["---", `name: pd_${appSlug}`, `description: >`];
+	const lines: string[] = ["---", `name: pd_${appSlug}`, "description: >"];
 
 	const actionNames = actions
 		.slice(0, 5)
@@ -279,8 +279,8 @@ export function generateSkillContent(
 
 	const configureDef = makeConfigureDefinition(appSlug, appName);
 	lines.push(`### ${configureDef.name}`);
-	lines.push(`Discover dynamic properties like available IDs and names.`);
-	lines.push(`Parameters: action (string), prop_name (string)`);
+	lines.push("Discover dynamic properties like available IDs and names.");
+	lines.push("Parameters: action (string), prop_name (string)");
 	lines.push("");
 	toolSchemas.push(configureDef);
 

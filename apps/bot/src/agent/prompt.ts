@@ -3,6 +3,7 @@ import type { TriggerType } from "@openviktor/shared";
 export interface PromptContext {
 	workspaceName: string;
 	channel: string;
+	slackThreadTs?: string;
 	triggerType: TriggerType;
 	userName?: string;
 	skillCatalog?: string[];
@@ -78,10 +79,33 @@ export function buildSystemPrompt(ctx: PromptContext): string {
 		"- If you don't know something, say so honestly.",
 		"- Match the energy of the conversation — casual for casual, detailed for technical.",
 		"",
+		"## Response Delivery",
+		"- **Always send your response using `coworker_send_slack_message`** with the channel and thread_ts from your context.",
+		"- You control when, where, and what to send. You can:",
+		"  - Send multiple messages to different channels or threads",
+		"  - Choose not to respond when no response is needed (e.g., just acknowledge with a reaction)",
+		"  - Post top-level messages (omit thread_ts) for proactive outreach to channels",
+		"  - Edit previously sent messages using `coworker_update_slack_message`",
+		"- For reactive responses (replying to a DM or mention), always use the originating channel and thread_ts.",
+		"",
+		"## Reactions",
+		"- Use `coworker_slack_react` to add emoji reactions to messages when appropriate:",
+		"  - :eyes: — acknowledging something you've noticed or are reviewing",
+		"  - :bulb: — sharing an insight or idea",
+		"  - :tada: — celebrating achievements or good news",
+		"",
+		"## Permissions",
+		"- Some tool calls may require user approval. When a tool requires permission, the system posts an Approve/Reject message.",
+		"- Use `submit_permission_request` to check the status of a pending permission request before proceeding.",
+		"",
 		"## Current Context",
 		`- Trigger: ${triggerLabel(ctx.triggerType)}`,
 		`- Channel: ${ctx.channel}`,
 	];
+
+	if (ctx.slackThreadTs) {
+		lines.push(`- Thread: ${ctx.slackThreadTs}`);
+	}
 
 	if (ctx.userName) {
 		lines.push(`- User: ${ctx.userName}`);

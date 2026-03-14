@@ -132,7 +132,11 @@ describe("ToolRegistry", () => {
 	});
 
 	it("excludes discoverable tools from getDefinitions()", () => {
-		registry.register("core", { name: "core", description: "Core", input_schema: {} }, echoExecutor);
+		registry.register(
+			"core",
+			{ name: "core", description: "Core", input_schema: {} },
+			echoExecutor,
+		);
 		registry.register(
 			"disco",
 			{ name: "disco", description: "Disco", input_schema: {} },
@@ -146,7 +150,11 @@ describe("ToolRegistry", () => {
 	});
 
 	it("includes discoverable tools in getAllDefinitions()", () => {
-		registry.register("core", { name: "core", description: "Core", input_schema: {} }, echoExecutor);
+		registry.register(
+			"core",
+			{ name: "core", description: "Core", input_schema: {} },
+			echoExecutor,
+		);
 		registry.register(
 			"disco",
 			{ name: "disco", description: "Disco", input_schema: {} },
@@ -160,7 +168,11 @@ describe("ToolRegistry", () => {
 	});
 
 	it("returns only discoverable tools from getDiscoverableDefinitions()", () => {
-		registry.register("core", { name: "core", description: "Core", input_schema: {} }, echoExecutor);
+		registry.register(
+			"core",
+			{ name: "core", description: "Core", input_schema: {} },
+			echoExecutor,
+		);
 		registry.register(
 			"mcp_pd_sheets_add",
 			{ name: "mcp_pd_sheets_add", description: "Add", input_schema: {} },
@@ -195,7 +207,11 @@ describe("ToolRegistry", () => {
 	});
 
 	it("reports isDiscoverable correctly", () => {
-		registry.register("core", { name: "core", description: "Core", input_schema: {} }, echoExecutor);
+		registry.register(
+			"core",
+			{ name: "core", description: "Core", input_schema: {} },
+			echoExecutor,
+		);
 		registry.register(
 			"disco",
 			{ name: "disco", description: "Disco", input_schema: {} },
