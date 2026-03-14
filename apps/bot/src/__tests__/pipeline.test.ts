@@ -40,7 +40,8 @@ function makeResponse(text: string): LLMResponse {
 function makePrisma() {
 	return {
 		thread: {
-			upsert: vi.fn().mockResolvedValue({ id: "thread_1" }),
+			upsert: vi.fn().mockResolvedValue({ id: "thread_1", metadata: {} }),
+			update: vi.fn().mockResolvedValue({}),
 		},
 		agentRun: {
 			create: vi.fn().mockResolvedValue({ id: "run_1", systemPrompt: "system" }),

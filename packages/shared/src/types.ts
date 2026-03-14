@@ -6,6 +6,20 @@ export type ToolType = "NATIVE" | "MCP" | "PIPEDREAM" | "CUSTOM";
 
 export type ThreadStatus = "ACTIVE" | "WAITING" | "COMPLETED" | "STALE";
 
+export const ThreadPhase = {
+	IDLE: 0,
+	TRIGGER: 1,
+	PROMPT_INJECTION: 2,
+	THREAD_LOCK: 3,
+	REASONING: 4,
+	TOOL_LOOP: 5,
+	DRAFT_GATE: 6,
+	PROGRESS: 7,
+	COMPLETION: 8,
+} as const;
+
+export type ThreadPhaseValue = (typeof ThreadPhase)[keyof typeof ThreadPhase];
+
 export interface TextBlock {
 	type: "text";
 	text: string;

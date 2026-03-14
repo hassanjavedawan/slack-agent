@@ -1,10 +1,12 @@
 export { loadConfig, resetConfig, type EnvConfig } from "./config.js";
 export { createLogger, logger, type Logger } from "./logger.js";
+export { ThreadPhase } from "./types.js";
 export type {
 	TriggerType,
 	RunStatus,
 	ToolType,
 	ThreadStatus,
+	ThreadPhaseValue,
 	TextBlock,
 	ToolUseBlock,
 	ToolResultBlock,
@@ -24,5 +26,7 @@ export {
 	ToolTimeoutError,
 	ToolExecutionError,
 	SlackError,
+	ThreadLockedError,
+	ConcurrencyExceededError,
 } from "./errors.js";
 export { markdownToMrkdwn, chunkMessage } from "./mrkdwn.js";

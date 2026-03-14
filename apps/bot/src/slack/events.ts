@@ -1,5 +1,11 @@
 import type { PrismaClient } from "@openviktor/db";
-import { type Logger, chunkMessage, markdownToMrkdwn } from "@openviktor/shared";
+import {
+	ConcurrencyExceededError,
+	type Logger,
+	ThreadLockedError,
+	chunkMessage,
+	markdownToMrkdwn,
+} from "@openviktor/shared";
 import type { App } from "@slack/bolt";
 import type { AgentRunner } from "../agent/runner.js";
 import { type SlackClient, resolveMember, resolveWorkspace } from "./resolve.js";
@@ -127,15 +133,26 @@ async function sendResponse(
 async function safeReply(
 	say: (opts: { text: string; thread_ts?: string }) => Promise<unknown>,
 	threadTs?: string,
+	text?: string,
 ): Promise<void> {
 	try {
 		await say({
-			text: "Sorry, I ran into an error processing your request. Please try again.",
+			text: text ?? "Sorry, I ran into an error processing your request. Please try again.",
 			thread_ts: threadTs,
 		});
 	} catch {
 		// Best-effort error reply
 	}
+}
+
+function orchestratorRejectionMessage(error: unknown): string | null {
+	if (error instanceof ThreadLockedError) {
+		return "I'm still working on your previous message. I'll respond as soon as I'm done.";
+	}
+	if (error instanceof ConcurrencyExceededError) {
+		return "I'm handling several requests right now. Please try again in a moment.";
+	}
+	return null;
 }
 
 export function registerEventHandlers(app: App, ctx: BotContext): void {
@@ -197,6 +214,11 @@ export function registerEventHandlers(app: App, ctx: BotContext): void {
 
 			await sendResponse(say, result.responseText, threadTs);
 		} catch (error) {
+			const rejection = orchestratorRejectionMessage(error);
+			if (rejection) {
+				await safeReply(say, threadTs, rejection);
+				return;
+			}
 			ctx.logger.error({ err: error, event: "app_mention" }, "Failed to handle mention");
 			await safeReply(say, threadTs);
 		}
@@ -221,6 +243,11 @@ export function registerEventHandlers(app: App, ctx: BotContext): void {
 		try {
 			await handleMessage(ctx, msg, client, teamId, botToken, botUserId, say);
 		} catch (error) {
+			const rejection = orchestratorRejectionMessage(error);
+			if (rejection) {
+				await safeReply(say, msg.thread_ts ?? msg.ts, rejection);
+				return;
+			}
 			const eventName = isDm ? "message_im" : "message_thread";
 			ctx.logger.error({ err: error, event: eventName }, "Failed to handle message");
 			await safeReply(say, msg.thread_ts);

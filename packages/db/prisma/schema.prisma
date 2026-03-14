@@ -200,6 +200,8 @@ model Thread {
   slackThreadTs String       @map("slack_thread_ts")
   status        ThreadStatus @default(ACTIVE)
   phase         Int          @default(0)
+  lockedBy      String?      @map("locked_by")
+  lockedAt      DateTime?    @map("locked_at")
   metadata      Json         @default("{}")
   createdAt     DateTime     @default(now()) @map("created_at")
   updatedAt     DateTime     @updatedAt @map("updated_at")
@@ -208,6 +210,8 @@ model Thread {
   agentRuns AgentRun[]
 
   @@unique([workspaceId, slackChannel, slackThreadTs])
+  @@index([status])
+  @@index([workspaceId, status])
   @@map("threads")
 }
 

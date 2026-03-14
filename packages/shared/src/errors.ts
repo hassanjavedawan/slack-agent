@@ -44,3 +44,25 @@ export class SlackError extends AppError {
 		this.name = "SlackError";
 	}
 }
+
+export class ThreadLockedError extends AppError {
+	constructor(threadId: string) {
+		super(
+			`Thread ${threadId} is locked by another agent run`,
+			"THREAD_LOCKED",
+			409,
+		);
+		this.name = "ThreadLockedError";
+	}
+}
+
+export class ConcurrencyExceededError extends AppError {
+	constructor(workspaceId: string, limit: number) {
+		super(
+			`Workspace ${workspaceId} has reached the maximum of ${limit} concurrent runs`,
+			"CONCURRENCY_EXCEEDED",
+			429,
+		);
+		this.name = "ConcurrencyExceededError";
+	}
+}
