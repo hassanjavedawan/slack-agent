@@ -122,7 +122,7 @@ async function handleMessage(
 		msg.user as string,
 	);
 
-	await addReaction(slackClient, msg.channel, msg.ts, "hourglass_flowing_sand");
+	await addReaction(slackClient, msg.channel, msg.ts, "hourglass_flowing_sand", ctx.logger);
 
 	const userMessage = stripBotMention(msg.text as string, botUserId);
 	const onboarding = await isOnboardingNeeded(ctx.prisma, workspace);
@@ -163,12 +163,12 @@ async function handleMessage(
 		if (!result.messageSent) {
 			await sendResponse(say, result.responseText, threadTs);
 		}
-		await removeReaction(slackClient, msg.channel, msg.ts, "hourglass_flowing_sand");
-		await addReaction(slackClient, msg.channel, msg.ts, "white_check_mark");
+		await removeReaction(slackClient, msg.channel, msg.ts, "hourglass_flowing_sand", ctx.logger);
+		await addReaction(slackClient, msg.channel, msg.ts, "white_check_mark", ctx.logger);
 	} catch (error) {
-		await removeReaction(slackClient, msg.channel, msg.ts, "hourglass_flowing_sand");
+		await removeReaction(slackClient, msg.channel, msg.ts, "hourglass_flowing_sand", ctx.logger);
 		if (error instanceof ThreadLockedError) {
-			await addReaction(slackClient, msg.channel, msg.ts, "eyes");
+			await addReaction(slackClient, msg.channel, msg.ts, "eyes", ctx.logger);
 			ctx.runner.injectMessage(msg.channel, threadTs, userMessage);
 			return;
 		}
@@ -239,11 +239,12 @@ async function addReaction(
 	channel: string,
 	timestamp: string,
 	emoji: string,
+	logger?: Logger,
 ): Promise<void> {
 	try {
 		await client.reactions.add({ channel, timestamp, name: emoji });
-	} catch {
-		// Best-effort — don't fail the request if reaction fails
+	} catch (err) {
+		logger?.warn({ err, channel, timestamp, emoji }, "Failed to add reaction");
 	}
 }
 
@@ -252,11 +253,12 @@ async function removeReaction(
 	channel: string,
 	timestamp: string,
 	emoji: string,
+	logger?: Logger,
 ): Promise<void> {
 	try {
 		await client.reactions.remove({ channel, timestamp, name: emoji });
-	} catch {
-		// Best-effort
+	} catch (err) {
+		logger?.warn({ err, channel, timestamp, emoji }, "Failed to remove reaction");
 	}
 }
 
