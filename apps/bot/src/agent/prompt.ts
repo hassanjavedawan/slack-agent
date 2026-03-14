@@ -22,6 +22,8 @@ export interface PromptContext {
 	heartbeatPrompt?: string;
 	discoveryPrompt?: string;
 	threadPath?: string;
+	onboardingPrompt?: string;
+	channelIntroPrompt?: string;
 }
 
 function triggerLabel(triggerType: TriggerType): string {
@@ -36,6 +38,8 @@ function triggerLabel(triggerType: TriggerType): string {
 			return "Heartbeat check-in";
 		case "DISCOVERY":
 			return "Discovery";
+		case "ONBOARDING":
+			return "First-install onboarding";
 		case "MANUAL":
 			return "Manual trigger";
 		case "SPAWN":
@@ -49,7 +53,32 @@ function identity(ctx: PromptContext): string {
 	return `You are OpenViktor, an AI coworker in the "${ctx.workspaceName}" Slack workspace.`;
 }
 
+function buildSpecializedPrompt(
+	workspaceName: string,
+	prompt: string,
+	preamble?: string,
+): string {
+	const lines = [
+		`You are OpenViktor, an AI coworker in the "${workspaceName}" Slack workspace.`,
+	];
+	if (preamble) lines.push(preamble);
+	lines.push("", prompt);
+	return lines.join("\n");
+}
+
 export function buildSystemPrompt(ctx: PromptContext): string {
+	if (ctx.onboardingPrompt) {
+		return buildSpecializedPrompt(
+			ctx.workspaceName,
+			ctx.onboardingPrompt,
+			"This is your FIRST interaction with this workspace — make a great first impression.",
+		);
+	}
+
+	if (ctx.channelIntroPrompt) {
+		return buildSpecializedPrompt(ctx.workspaceName, ctx.channelIntroPrompt);
+	}
+
 	if (ctx.heartbeatPrompt) {
 		return [identity(ctx), "", ctx.heartbeatPrompt].join("\n");
 	}
