@@ -1,4 +1,5 @@
 import type { PrismaClient } from "@openviktor/db";
+import { ConcurrencyExceededError, ThreadLockedError, ThreadPhase } from "@openviktor/shared";
 import type {
 	ContentBlock,
 	LLMToolDefinition,
@@ -8,6 +9,9 @@ import type {
 } from "@openviktor/shared";
 import type { LLMMessage } from "@openviktor/shared";
 import type { ToolGatewayClient } from "@openviktor/tools";
+import type { ConcurrencyLimiter } from "../thread/concurrency.js";
+import { transitionPhase } from "../thread/lifecycle.js";
+import type { ThreadLock } from "../thread/lock.js";
 import {
 	CONTEXT_WINDOW_SIZE,
 	type StoredMessage,
@@ -49,20 +53,33 @@ export interface ToolConfig {
 	tools: LLMToolDefinition[];
 }
 
+export interface OrchestratorConfig {
+	concurrencyLimiter: ConcurrencyLimiter;
+	threadLock: ThreadLock;
+	maxConcurrentRuns: number;
+}
+
 export class AgentRunner {
 	private toolConfig: ToolConfig | null;
+	private orchestrator: OrchestratorConfig | null;
 
 	constructor(
 		private prisma: PrismaClient,
 		private llm: LLMGateway,
 		private logger: Logger,
 		toolConfig?: ToolConfig,
+		orchestrator?: OrchestratorConfig,
 	) {
 		this.toolConfig = toolConfig ?? null;
+		this.orchestrator = orchestrator ?? null;
 	}
 
 	updateToolConfig(config: ToolConfig): void {
 		this.toolConfig = config;
+	}
+
+	updateOrchestrator(config: OrchestratorConfig): void {
+		this.orchestrator = config;
 	}
 
 	async run(trigger: RunTrigger): Promise<RunResult> {
@@ -76,17 +93,19 @@ export class AgentRunner {
 					slackThreadTs: trigger.slackThreadTs,
 				},
 			},
-			update: { status: "ACTIVE" },
+			update: { status: "ACTIVE", phase: ThreadPhase.TRIGGER },
 			create: {
 				workspaceId: trigger.workspaceId,
 				slackChannel: trigger.slackChannel,
 				slackThreadTs: trigger.slackThreadTs,
 				status: "ACTIVE",
+				phase: ThreadPhase.TRIGGER,
 			},
 		});
 
-		const systemPrompt = buildSystemPrompt(trigger.promptContext);
+		await this.ensureThreadNotLocked(thread.id);
 
+		const systemPrompt = buildSystemPrompt(trigger.promptContext);
 		const model = trigger.model ?? this.llm.getModel();
 
 		const agentRun = await this.prisma.agentRun.create({
@@ -105,7 +124,14 @@ export class AgentRunner {
 
 		this.logger.info({ agentRunId: agentRun.id, threadId: thread.id }, "Agent run started");
 
+		await this.acquireConcurrencyOrCancel(trigger.workspaceId, agentRun.id);
+
+		let lockAcquired = false;
 		try {
+			lockAcquired = await this.acquireThreadLockOrCancel(thread.id, agentRun.id);
+
+			await transitionPhase(this.prisma, thread.id, ThreadPhase.PROMPT_INJECTION);
+
 			await this.prisma.message.create({
 				data: {
 					agentRunId: agentRun.id,
@@ -116,12 +142,16 @@ export class AgentRunner {
 				},
 			});
 
+			await transitionPhase(this.prisma, thread.id, ThreadPhase.REASONING);
+
 			const { messages, summaryUsage } = await this.buildMessages(thread, systemPrompt);
-			const executeResult = await this.execute(agentRun.id, messages, trigger.model);
+			const executeResult = await this.execute(agentRun.id, thread.id, messages, trigger.model);
 
 			const inputTokens = executeResult.inputTokens + (summaryUsage?.inputTokens ?? 0);
 			const outputTokens = executeResult.outputTokens + (summaryUsage?.outputTokens ?? 0);
 			const costCents = executeResult.costCents + (summaryUsage?.costCents ?? 0);
+
+			await transitionPhase(this.prisma, thread.id, ThreadPhase.COMPLETION);
 
 			await this.prisma.message.create({
 				data: {
@@ -146,6 +176,11 @@ export class AgentRunner {
 				},
 			});
 
+			await this.prisma.thread.update({
+				where: { id: thread.id },
+				data: { status: "WAITING", phase: ThreadPhase.IDLE },
+			});
+
 			this.logger.info(
 				{ agentRunId: agentRun.id, durationMs, inputTokens, outputTokens, costCents },
 				"Agent run completed",
@@ -161,30 +196,99 @@ export class AgentRunner {
 				durationMs,
 			};
 		} catch (error) {
-			const durationMs = Date.now() - startTime;
-			const errorMessage = error instanceof Error ? error.message : String(error);
-
-			this.logger.error({ agentRunId: agentRun.id, err: error }, "Agent run failed");
-
-			try {
-				await this.prisma.agentRun.update({
-					where: { id: agentRun.id },
-					data: {
-						status: "FAILED",
-						errorMessage,
-						durationMs,
-						completedAt: new Date(),
-					},
-				});
-			} catch (updateError) {
-				this.logger.error(
-					{ agentRunId: agentRun.id, err: updateError },
-					"Failed to update agent run status",
-				);
-			}
-
+			await this.markRunFailed(agentRun.id, error, Date.now() - startTime);
 			throw error;
+		} finally {
+			await this.releaseOrchestratorResources(
+				thread.id,
+				agentRun.id,
+				trigger.workspaceId,
+				lockAcquired,
+			);
 		}
+	}
+
+	private async ensureThreadNotLocked(threadId: string): Promise<void> {
+		if (!this.orchestrator) return;
+		const locked = await this.orchestrator.threadLock.isLocked(threadId);
+		if (locked) {
+			throw new ThreadLockedError(threadId);
+		}
+	}
+
+	private async acquireConcurrencyOrCancel(workspaceId: string, agentRunId: string): Promise<void> {
+		if (!this.orchestrator) return;
+		const acquired = await this.orchestrator.concurrencyLimiter.acquire(workspaceId, agentRunId);
+		if (!acquired) {
+			await this.prisma.agentRun.update({
+				where: { id: agentRunId },
+				data: {
+					status: "CANCELLED",
+					errorMessage: "Concurrency limit exceeded",
+					completedAt: new Date(),
+				},
+			});
+			throw new ConcurrencyExceededError(workspaceId, this.orchestrator.maxConcurrentRuns);
+		}
+	}
+
+	private async acquireThreadLockOrCancel(threadId: string, agentRunId: string): Promise<boolean> {
+		if (!this.orchestrator) return false;
+		const acquired = await this.orchestrator.threadLock.acquire(threadId, agentRunId);
+		if (!acquired) {
+			await this.prisma.agentRun.update({
+				where: { id: agentRunId },
+				data: {
+					status: "CANCELLED",
+					errorMessage: "Could not acquire thread lock",
+					completedAt: new Date(),
+				},
+			});
+			throw new ThreadLockedError(threadId);
+		}
+		return true;
+	}
+
+	private async markRunFailed(
+		agentRunId: string,
+		error: unknown,
+		durationMs: number,
+	): Promise<void> {
+		if (error instanceof ThreadLockedError || error instanceof ConcurrencyExceededError) return;
+
+		this.logger.error({ agentRunId, err: error }, "Agent run failed");
+		const errorMessage = error instanceof Error ? error.message : String(error);
+
+		try {
+			await this.prisma.agentRun.update({
+				where: { id: agentRunId },
+				data: {
+					status: "FAILED",
+					errorMessage,
+					durationMs,
+					completedAt: new Date(),
+				},
+			});
+		} catch (updateError) {
+			this.logger.error({ agentRunId, err: updateError }, "Failed to update agent run status");
+		}
+	}
+
+	private async releaseOrchestratorResources(
+		threadId: string,
+		agentRunId: string,
+		workspaceId: string,
+		lockAcquired: boolean,
+	): Promise<void> {
+		if (!this.orchestrator) return;
+		if (lockAcquired) {
+			await this.orchestrator.threadLock.release(threadId, agentRunId).catch((err) => {
+				this.logger.error({ threadId, err }, "Failed to release thread lock");
+			});
+		}
+		await this.orchestrator.concurrencyLimiter.release(workspaceId, agentRunId).catch((err) => {
+			this.logger.error({ workspaceId, err }, "Failed to release concurrency slot");
+		});
 	}
 
 	private async buildMessages(
@@ -260,6 +364,7 @@ export class AgentRunner {
 
 	private async execute(
 		agentRunId: string,
+		threadId: string,
 		messages: LLMMessage[],
 		modelOverride?: string,
 	): Promise<{
@@ -307,6 +412,8 @@ export class AgentRunner {
 				};
 			}
 
+			await transitionPhase(this.prisma, threadId, ThreadPhase.TOOL_LOOP);
+
 			messages.push({ role: "assistant", content: response.content });
 
 			const toolResults: ContentBlock[] = [];
@@ -316,6 +423,8 @@ export class AgentRunner {
 			}
 
 			messages.push({ role: "user", content: toolResults });
+
+			await transitionPhase(this.prisma, threadId, ThreadPhase.REASONING);
 		}
 
 		this.logger.warn({ agentRunId }, "Exceeded maximum tool rounds");

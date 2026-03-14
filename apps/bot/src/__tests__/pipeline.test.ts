@@ -12,6 +12,10 @@ vi.mock("../agent/gateway.js", () => ({
 	),
 }));
 
+vi.mock("../thread/lifecycle.js", () => ({
+	transitionPhase: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock("../slack/resolve.js", () => ({
 	resolveWorkspace: vi.fn().mockResolvedValue({
 		id: "ws_1",
@@ -40,7 +44,8 @@ function makeResponse(text: string): LLMResponse {
 function makePrisma() {
 	return {
 		thread: {
-			upsert: vi.fn().mockResolvedValue({ id: "thread_1" }),
+			upsert: vi.fn().mockResolvedValue({ id: "thread_1", metadata: {} }),
+			update: vi.fn().mockResolvedValue({}),
 		},
 		agentRun: {
 			create: vi.fn().mockResolvedValue({ id: "run_1", systemPrompt: "system" }),

@@ -5,6 +5,10 @@ import { AgentRunner, type RunTrigger } from "../runner.js";
 const mockChat = vi.fn();
 const mockGetModel = vi.fn().mockReturnValue("claude-sonnet-4-20250514");
 
+vi.mock("../../thread/lifecycle.js", () => ({
+	transitionPhase: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock("../gateway.js", () => ({
 	LLMGateway: vi.fn().mockImplementation(() => ({
 		chat: mockChat,
@@ -481,8 +485,12 @@ describe("AgentRunner", () => {
 		// Only one LLM call (no summary generation needed)
 		expect(mockChat).toHaveBeenCalledTimes(1);
 
-		// Thread.update not called for summary
-		expect(prisma.thread.update).not.toHaveBeenCalled();
+		// Thread.update only called for phase transitions (not summary regeneration)
+		const summaryUpdateCalls = prisma.thread.update.mock.calls.filter((call: unknown[]) => {
+			const arg = call[0] as { data: Record<string, unknown> };
+			return "metadata" in arg.data;
+		});
+		expect(summaryUpdateCalls).toHaveLength(0);
 
 		// System prompt includes cached summary
 		const chatCall = mockChat.mock.calls[0][0];

@@ -33,6 +33,7 @@
 			"dist",
 			".turbo",
 			".omc",
+			".claude",
 			"packages/db/src/generated",
 			"*.gen.ts",
 			"bun.lock"

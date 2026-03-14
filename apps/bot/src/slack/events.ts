@@ -1,5 +1,11 @@
 import type { PrismaClient } from "@openviktor/db";
-import { type Logger, chunkMessage, markdownToMrkdwn } from "@openviktor/shared";
+import {
+	ConcurrencyExceededError,
+	type Logger,
+	ThreadLockedError,
+	chunkMessage,
+	markdownToMrkdwn,
+} from "@openviktor/shared";
 import type { App } from "@slack/bolt";
 import type { AgentRunner } from "../agent/runner.js";
 import { type SlackClient, resolveMember, resolveWorkspace } from "./resolve.js";
@@ -127,15 +133,46 @@ async function sendResponse(
 async function safeReply(
 	say: (opts: { text: string; thread_ts?: string }) => Promise<unknown>,
 	threadTs?: string,
+	text?: string,
 ): Promise<void> {
 	try {
 		await say({
-			text: "Sorry, I ran into an error processing your request. Please try again.",
+			text: text ?? "Sorry, I ran into an error processing your request. Please try again.",
 			thread_ts: threadTs,
 		});
 	} catch {
 		// Best-effort error reply
 	}
+}
+
+function orchestratorRejectionMessage(error: unknown): string | null {
+	if (error instanceof ThreadLockedError) {
+		return "I'm still working on your previous message. I'll respond as soon as I'm done.";
+	}
+	if (error instanceof ConcurrencyExceededError) {
+		return "I'm handling several requests right now. Please try again in a moment.";
+	}
+	return null;
+}
+
+async function handleEventError(
+	ctx: BotContext,
+	error: unknown,
+	eventName: string,
+	say: (opts: { text: string; thread_ts?: string }) => Promise<unknown>,
+	threadTs?: string,
+): Promise<void> {
+	const rejection = orchestratorRejectionMessage(error);
+	if (rejection) {
+		await safeReply(say, threadTs, rejection);
+		return;
+	}
+	ctx.logger.error({ err: error, event: eventName }, `Failed to handle ${eventName}`);
+	await safeReply(say, threadTs);
+}
+
+function isActionableMessage(msg: SlackMessage, botUserId?: string): boolean {
+	return !msg.subtype && !msg.bot_id && !!msg.user && !!msg.text && msg.user !== botUserId;
 }
 
 export function registerEventHandlers(app: App, ctx: BotContext): void {
@@ -169,15 +206,7 @@ export function registerEventHandlers(app: App, ctx: BotContext): void {
 				slackUser,
 			);
 
-			const skills = await ctx.prisma.skill.findMany({
-				where: { workspaceId: workspace.id },
-				select: { name: true, description: true, version: true },
-				orderBy: { name: "asc" },
-			});
-			const skillCatalog = skills.map((s) => {
-				const desc = s.description ? ` — ${s.description}` : "";
-				return `${s.name} (v${s.version})${desc}`;
-			});
+			const skillCatalog = await fetchSkillCatalog(ctx.prisma, workspace.id);
 
 			const result = await ctx.runner.run({
 				workspaceId: workspace.id,
@@ -197,8 +226,7 @@ export function registerEventHandlers(app: App, ctx: BotContext): void {
 
 			await sendResponse(say, result.responseText, threadTs);
 		} catch (error) {
-			ctx.logger.error({ err: error, event: "app_mention" }, "Failed to handle mention");
-			await safeReply(say, threadTs);
+			await handleEventError(ctx, error, "app_mention", say, threadTs);
 		}
 	});
 
@@ -206,9 +234,7 @@ export function registerEventHandlers(app: App, ctx: BotContext): void {
 		const msg = event as unknown as SlackMessage;
 		const { teamId, botUserId, botToken } = context;
 
-		const isActionable =
-			!msg.subtype && !msg.bot_id && msg.user && msg.text && msg.user !== botUserId;
-		if (!isActionable) return;
+		if (!isActionableMessage(msg, botUserId)) return;
 
 		const isDm = msg.channel_type === "im";
 		if (!isDm && !msg.thread_ts) return;
@@ -222,8 +248,7 @@ export function registerEventHandlers(app: App, ctx: BotContext): void {
 			await handleMessage(ctx, msg, client, teamId, botToken, botUserId, say);
 		} catch (error) {
 			const eventName = isDm ? "message_im" : "message_thread";
-			ctx.logger.error({ err: error, event: eventName }, "Failed to handle message");
-			await safeReply(say, msg.thread_ts);
+			await handleEventError(ctx, error, eventName, say, msg.thread_ts ?? msg.ts);
 		}
 	});
 }

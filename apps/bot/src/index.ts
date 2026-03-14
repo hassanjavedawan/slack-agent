@@ -26,6 +26,9 @@ import {
 	registerEventHandlers,
 	startSlackApp,
 } from "./slack/index.js";
+import { createConcurrencyLimiter } from "./thread/concurrency.js";
+import { ThreadLock } from "./thread/lock.js";
+import { StaleThreadDetector } from "./thread/stale.js";
 import { createToolGateway, registerWorkspaceToken } from "./tool-gateway/server.js";
 
 const logger = createLogger("bot");
@@ -96,11 +99,42 @@ async function main(): Promise<void> {
 	});
 	registerWorkspaceToken("local", "default");
 
+	const concurrencyLimiter = await createConcurrencyLimiter(
+		config.MAX_CONCURRENT_RUNS,
+		createLogger("concurrency"),
+		config.REDIS_URL,
+		config.AGENT_TIMEOUT_MS,
+	);
+
+	const threadLock = new ThreadLock(
+		prisma,
+		createLogger("thread-lock"),
+		config.THREAD_LOCK_TIMEOUT_MS,
+	);
+
+	const staleDetector = new StaleThreadDetector(
+		prisma,
+		createLogger("stale-detector"),
+		config.STALE_THREAD_TIMEOUT_MS,
+		config.STALE_CHECK_INTERVAL_MS,
+	);
+	staleDetector.start();
+
 	const llm = new LLMGateway(config);
-	const runner = new AgentRunner(prisma, llm, createLogger("agent-runner"), {
-		client: gatewayClient,
-		tools: registry.getDefinitions(),
-	});
+	const runner = new AgentRunner(
+		prisma,
+		llm,
+		createLogger("agent-runner"),
+		{
+			client: gatewayClient,
+			tools: registry.getDefinitions(),
+		},
+		{
+			concurrencyLimiter,
+			threadLock,
+			maxConcurrentRuns: config.MAX_CONCURRENT_RUNS,
+		},
+	);
 
 	const scheduler = new CronScheduler(prisma, runner, createLogger("cron-scheduler"), {
 		checkIntervalMs: config.CRON_CHECK_INTERVAL_MS,
@@ -133,7 +167,9 @@ async function main(): Promise<void> {
 
 	const shutdown = async () => {
 		logger.info("Shutting down");
+		staleDetector.stop();
 		scheduler.stop();
+		await concurrencyLimiter.shutdown();
 		gatewayServer.stop();
 		await app.stop();
 		await prisma.$disconnect();
