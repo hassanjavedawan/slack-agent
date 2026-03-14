@@ -2,7 +2,7 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { LLMProvider } from "@openviktor/shared";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { ToolExecutionContext } from "../registry.js";
 import { createAiStructuredOutputExecutor } from "../tools/ai-structured-output.js";
 import { createCustomApiIntegrationExecutor } from "../tools/create-custom-api-integration.js";
