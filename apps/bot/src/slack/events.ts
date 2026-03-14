@@ -126,7 +126,9 @@ async function handleMessage(
 
 	const userMessage = stripBotMention(msg.text as string, botUserId);
 	const onboarding = await isOnboardingNeeded(ctx.prisma, workspace);
-	const triggerType = onboarding ? "ONBOARDING" : isDm ? "DM" : "MENTION";
+	let triggerType: "ONBOARDING" | "DM" | "MENTION" = "MENTION";
+	if (onboarding) triggerType = "ONBOARDING";
+	else if (isDm) triggerType = "DM";
 
 	const [skillCatalog, integrationCatalog, activeThreads] = await Promise.all([
 		fetchSkillCatalog(ctx.prisma, workspace.id),
@@ -195,6 +197,7 @@ async function safeReply(
 	say: (opts: { text: string; thread_ts?: string }) => Promise<unknown>,
 	threadTs?: string,
 	text?: string,
+	logger?: Logger,
 ): Promise<void> {
 	try {
 		await say({
@@ -203,8 +206,8 @@ async function safeReply(
 				"Something went wrong while processing your request. Let me know if you'd like me to try again.",
 			thread_ts: threadTs,
 		});
-	} catch {
-		// Best-effort error reply
+	} catch (err) {
+		logger?.warn({ err, threadTs }, "Failed to send error reply");
 	}
 }
 
@@ -227,11 +230,11 @@ async function handleEventError(
 ): Promise<void> {
 	const rejection = orchestratorRejectionMessage(error);
 	if (rejection) {
-		await safeReply(say, threadTs, rejection);
+		await safeReply(say, threadTs, rejection, ctx.logger);
 		return;
 	}
 	ctx.logger.error({ err: error, event: eventName }, `Failed to handle ${eventName}`);
-	await safeReply(say, threadTs);
+	await safeReply(say, threadTs, undefined, ctx.logger);
 }
 
 async function addReaction(
@@ -280,8 +283,8 @@ async function handleMention(
 
 	try {
 		await slackClient.conversations.join({ channel: event.channel });
-	} catch {
-		// Already a member or can't join — continue regardless
+	} catch (err) {
+		ctx.logger.debug({ err, channel: event.channel }, "Could not join channel");
 	}
 
 	const { workspace, member } = await resolveContext(
@@ -293,7 +296,7 @@ async function handleMention(
 		event.user,
 	);
 
-	await addReaction(slackClient, event.channel, event.ts, "hourglass_flowing_sand");
+	await addReaction(slackClient, event.channel, event.ts, "hourglass_flowing_sand", ctx.logger);
 
 	const userMessage = stripBotMention(event.text, botUserId);
 	const onboarding = await isOnboardingNeeded(ctx.prisma, workspace);
@@ -336,12 +339,24 @@ async function handleMention(
 		if (!result.messageSent) {
 			await sendResponse(say, result.responseText, threadTs);
 		}
-		await removeReaction(slackClient, event.channel, event.ts, "hourglass_flowing_sand");
-		await addReaction(slackClient, event.channel, event.ts, "white_check_mark");
+		await removeReaction(
+			slackClient,
+			event.channel,
+			event.ts,
+			"hourglass_flowing_sand",
+			ctx.logger,
+		);
+		await addReaction(slackClient, event.channel, event.ts, "white_check_mark", ctx.logger);
 	} catch (error) {
-		await removeReaction(slackClient, event.channel, event.ts, "hourglass_flowing_sand");
+		await removeReaction(
+			slackClient,
+			event.channel,
+			event.ts,
+			"hourglass_flowing_sand",
+			ctx.logger,
+		);
 		if (error instanceof ThreadLockedError) {
-			await addReaction(slackClient, event.channel, event.ts, "eyes");
+			await addReaction(slackClient, event.channel, event.ts, "eyes", ctx.logger);
 			ctx.runner.injectMessage(event.channel, threadTs, userMessage);
 			return;
 		}

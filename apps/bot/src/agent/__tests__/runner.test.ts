@@ -1028,6 +1028,155 @@ describe("AgentRunner — Approval Gate", () => {
 		);
 	});
 
+	it("transitions DRAFT_GATE → TOOL_LOOP after approval resolves", async () => {
+		const { transitionPhase: mockTransition } = await import("../../thread/lifecycle.js");
+
+		const gate = makeApprovalGate();
+		const mockClient = {
+			call: vi
+				.fn()
+				.mockResolvedValueOnce({
+					output: {
+						_permissionRequired: true,
+						permissionRequestId: PERMISSION_REQUEST_ID,
+						toolName: "mcp_pd_sheets_add_row",
+						toolInput: { data: "test" },
+					},
+					durationMs: 0,
+				})
+				.mockResolvedValueOnce({
+					output: { success: true },
+					durationMs: 15,
+				}),
+		};
+
+		prisma.permissionRequest.findUnique.mockResolvedValue({
+			id: PERMISSION_REQUEST_ID,
+			status: "APPROVED",
+			approvedBy: "U123",
+			expiresAt: new Date(Date.now() + 300_000),
+		});
+
+		const toolRunner = new AgentRunner(
+			prisma as never,
+			{ chat: mockChat, getModel: mockGetModel } as never,
+			logger as never,
+			{
+				client: mockClient as never,
+				tools: [
+					{
+						name: "mcp_pd_sheets_add_row",
+						description: "Add row",
+						input_schema: { type: "object" },
+					},
+				],
+			},
+			undefined,
+			gate,
+		);
+
+		const toolUseResponse = makeResponse({
+			stopReason: "tool_use",
+			content: [
+				{
+					type: "tool_use",
+					id: "tool_1",
+					name: "mcp_pd_sheets_add_row",
+					input: { data: "test" },
+				},
+			],
+		});
+		const finalResponse = makeResponse({
+			content: [{ type: "text", text: "Row added!" }],
+		});
+		mockChat.mockResolvedValueOnce(toolUseResponse).mockResolvedValueOnce(finalResponse);
+
+		await toolRunner.run(makeTrigger());
+
+		// Verify the phase transition sequence includes DRAFT_GATE and back to TOOL_LOOP
+		const transitionCalls = (mockTransition as ReturnType<typeof vi.fn>).mock.calls.map(
+			(c: unknown[]) => c[2],
+		);
+
+		// Should contain: TRIGGER→PROMPT_INJECTION, PROMPT_INJECTION→..., ..., TOOL_LOOP, DRAFT_GATE, TOOL_LOOP, REASONING, COMPLETION
+		expect(transitionCalls).toContain(6); // DRAFT_GATE
+		expect(transitionCalls).toContain(5); // TOOL_LOOP (after DRAFT_GATE)
+
+		// TOOL_LOOP should appear after DRAFT_GATE in the sequence
+		const draftGateIdx = transitionCalls.lastIndexOf(6);
+		const toolLoopAfterIdx = transitionCalls.indexOf(5, draftGateIdx);
+		expect(toolLoopAfterIdx).toBeGreaterThan(draftGateIdx);
+	});
+
+	it("transitions DRAFT_GATE → TOOL_LOOP after rejection", async () => {
+		const { transitionPhase: mockTransition } = await import("../../thread/lifecycle.js");
+
+		const gate = makeApprovalGate();
+		const mockClient = {
+			call: vi.fn().mockResolvedValueOnce({
+				output: {
+					_permissionRequired: true,
+					permissionRequestId: PERMISSION_REQUEST_ID,
+					toolName: "mcp_pd_sheets_delete_row",
+					toolInput: { row_id: "42" },
+				},
+				durationMs: 0,
+			}),
+		};
+
+		prisma.permissionRequest.findUnique.mockResolvedValue({
+			id: PERMISSION_REQUEST_ID,
+			status: "REJECTED",
+			approvedBy: "U456",
+			expiresAt: new Date(Date.now() + 300_000),
+		});
+
+		const toolRunner = new AgentRunner(
+			prisma as never,
+			{ chat: mockChat, getModel: mockGetModel } as never,
+			logger as never,
+			{
+				client: mockClient as never,
+				tools: [
+					{
+						name: "mcp_pd_sheets_delete_row",
+						description: "Delete row",
+						input_schema: { type: "object" },
+					},
+				],
+			},
+			undefined,
+			gate,
+		);
+
+		const toolUseResponse = makeResponse({
+			stopReason: "tool_use",
+			content: [
+				{
+					type: "tool_use",
+					id: "tool_1",
+					name: "mcp_pd_sheets_delete_row",
+					input: { row_id: "42" },
+				},
+			],
+		});
+		const finalResponse = makeResponse({
+			content: [{ type: "text", text: "Denied." }],
+		});
+		mockChat.mockResolvedValueOnce(toolUseResponse).mockResolvedValueOnce(finalResponse);
+
+		await toolRunner.run(makeTrigger());
+
+		const transitionCalls = (mockTransition as ReturnType<typeof vi.fn>).mock.calls.map(
+			(c: unknown[]) => c[2],
+		);
+
+		// TOOL_LOOP should appear after DRAFT_GATE
+		const draftGateIdx = transitionCalls.lastIndexOf(6);
+		const toolLoopAfterIdx = transitionCalls.indexOf(5, draftGateIdx);
+		expect(toolLoopAfterIdx).toBeGreaterThan(draftGateIdx);
+	});
+
 	it("returns error when no approval gate is configured", async () => {
 		const mockClient = {
 			call: vi.fn().mockResolvedValueOnce({
