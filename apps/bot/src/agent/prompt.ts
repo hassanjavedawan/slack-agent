@@ -157,15 +157,6 @@ function buildInteractivePrompt(ctx: PromptContext): string {
 		lines.push(`- Path: ${ctx.threadPath}`);
 	}
 
-	if (ctx.activeThreads && ctx.activeThreads.length > 0) {
-		lines.push("");
-		lines.push("## Currently Active Threads");
-		for (const thread of ctx.activeThreads) {
-			const label = thread.title ? `${thread.path} — ${thread.title}` : thread.path;
-			lines.push(`- ${label} (${thread.status.toLowerCase()})`);
-		}
-	}
-
 	return lines.join("\n");
 }
 
@@ -239,7 +230,8 @@ function buildActiveThreadsSection(ctx: PromptContext): string[] {
 	if (!ctx.activeThreads || ctx.activeThreads.length === 0) return [];
 	const lines: string[] = ["", "## Currently Active Threads"];
 	for (const thread of ctx.activeThreads) {
-		lines.push(`- ${thread}`);
+		const label = thread.title ? `${thread.path} — ${thread.title}` : thread.path;
+		lines.push(`- ${label} (${thread.status.toLowerCase()})`);
 	}
 	return lines;
 }

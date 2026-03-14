@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createThreadSpawner, type ThreadSpawnerConfig } from "../spawner.js";
+import { type ThreadSpawnerConfig, createThreadSpawner } from "../spawner.js";
 
 function makeLogger() {
 	return {
@@ -130,9 +130,7 @@ describe("createThreadSpawner", () => {
 	});
 
 	it("waits for dependencies before spawning", async () => {
-		prisma.thread.findMany.mockResolvedValue([
-			{ path: "/dep/a", status: "COMPLETED" },
-		]);
+		prisma.thread.findMany.mockResolvedValue([{ path: "/dep/a", status: "COMPLETED" }]);
 		const spawner = createThreadSpawner(config);
 
 		spawner({
@@ -155,9 +153,7 @@ describe("createThreadSpawner", () => {
 	});
 
 	it("proceeds even when dependency wait times out", async () => {
-		prisma.thread.findMany.mockResolvedValue([
-			{ path: "/dep/a", status: "ACTIVE" },
-		]);
+		prisma.thread.findMany.mockResolvedValue([{ path: "/dep/a", status: "ACTIVE" }]);
 
 		const shortConfig = {
 			...config,
