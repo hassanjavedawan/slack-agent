@@ -202,7 +202,7 @@ describe("slack message mrkdwn conversion", () => {
 		const mock = mockSlackFetch();
 		try {
 			await slackTools.coworker_send_slack_message(
-				{ channel: "C123", text: "This is **bold** and *italic*" },
+				{ channel: "C123", text: "This is **bold** and *italic*", do_send: true, reflection: "test" },
 				ctx,
 			);
 			const body = new URLSearchParams(mock.calls[0].body);

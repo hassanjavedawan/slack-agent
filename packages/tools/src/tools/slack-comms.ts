@@ -476,7 +476,7 @@ interface SendMessageArgs {
 
 function parseSendMessageArgs(args: Record<string, unknown>): SendMessageArgs {
 	const channelId = resolveChannelId(args);
-	const text = getRequiredString(args, "text");
+	const text = markdownToMrkdwn(getRequiredString(args, "text"));
 	const messageType = getOptionalString(args, "message_type") ?? "regular";
 	const permissionRequestDraftIds = Array.isArray(args.permission_request_draft_ids)
 		? args.permission_request_draft_ids.filter((id): id is string => typeof id === "string")
