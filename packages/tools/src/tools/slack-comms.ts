@@ -12,7 +12,9 @@ type SlackToolName =
 	| "coworker_delete_slack_message"
 	| "coworker_update_slack_message"
 	| "coworker_upload_to_slack"
-	| "coworker_download_from_slack";
+	| "coworker_download_from_slack"
+	| "create_thread"
+	| "send_message_to_thread";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -476,7 +478,7 @@ interface SendMessageArgs {
 
 function parseSendMessageArgs(args: Record<string, unknown>): SendMessageArgs {
 	const channelId = resolveChannelId(args);
-	const text = getRequiredString(args, "text");
+	const text = markdownToMrkdwn(getRequiredString(args, "text"));
 	const messageType = getOptionalString(args, "message_type") ?? "regular";
 	const permissionRequestDraftIds = Array.isArray(args.permission_request_draft_ids)
 		? args.permission_request_draft_ids.filter((id): id is string => typeof id === "string")
@@ -808,5 +810,7 @@ export function createSlackToolExecutors(slackToken: string): {
 		coworker_update_slack_message: createCoworkerUpdateSlackMessageExecutor(slackToken),
 		coworker_upload_to_slack: createCoworkerUploadToSlackExecutor(slackToken),
 		coworker_download_from_slack: createCoworkerDownloadFromSlackExecutor(slackToken),
+		create_thread: createCreateThreadExecutor(slackToken),
+		send_message_to_thread: createSendMessageToThreadExecutor(slackToken),
 	};
 }

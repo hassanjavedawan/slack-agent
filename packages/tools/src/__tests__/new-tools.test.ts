@@ -9,6 +9,7 @@ import { createCustomApiIntegrationExecutor } from "../tools/create-custom-api-i
 import { fileToMarkdownExecutor } from "../tools/file-to-markdown.js";
 import { createGitExecutors } from "../tools/git.js";
 import { createQuickAiSearchExecutor } from "../tools/quick-ai-search.js";
+import { createSlackToolExecutors } from "../tools/slack-comms.js";
 import { workspaceTreeExecutor } from "../tools/workspace-tree.js";
 
 let workspaceDir: string;
@@ -174,6 +175,91 @@ describe("quick_ai_search", () => {
 		const exec = createQuickAiSearchExecutor({});
 		const result = await exec({}, ctx);
 		expect(result.error).toBeDefined();
+	});
+});
+
+describe("slack message mrkdwn conversion", () => {
+	const slackTools = createSlackToolExecutors("fake-token");
+
+	function mockSlackFetch() {
+		const calls: { method: string; body: string }[] = [];
+		const original = globalThis.fetch;
+		globalThis.fetch = (async (url: string | URL, init?: RequestInit) => {
+			calls.push({ method: String(url), body: String(init?.body ?? "") });
+			return new Response(JSON.stringify({ ok: true, ts: "1234.5678", channel: "C123" }), {
+				status: 200,
+				headers: { "Content-Type": "application/json" },
+			});
+		}) as typeof fetch;
+		return {
+			calls,
+			restore: () => {
+				globalThis.fetch = original;
+			},
+		};
+	}
+
+	it("coworker_send_slack_message converts markdown to mrkdwn", async () => {
+		const mock = mockSlackFetch();
+		try {
+			await slackTools.coworker_send_slack_message(
+				{
+					channel: "C123",
+					text: "This is **bold** and *italic*",
+					do_send: true,
+					reflection: "test",
+				},
+				ctx,
+			);
+			const body = new URLSearchParams(mock.calls[0].body);
+			expect(body.get("text")).toBe("This is *bold* and _italic_");
+		} finally {
+			mock.restore();
+		}
+	});
+
+	it("send_message_to_thread converts markdown to mrkdwn", async () => {
+		const mock = mockSlackFetch();
+		try {
+			await slackTools.send_message_to_thread(
+				{ channel: "C123", thread_ts: "1234.5678", text: "[docs](https://example.com)" },
+				ctx,
+			);
+			const body = new URLSearchParams(mock.calls[0].body);
+			expect(body.get("text")).toBe("<https://example.com|docs>");
+		} finally {
+			mock.restore();
+		}
+	});
+
+	it("create_thread converts markdown to mrkdwn", async () => {
+		const mock = mockSlackFetch();
+		try {
+			await slackTools.create_thread(
+				{ channel: "C123", text: "# Heading\n\nSome **bold** text" },
+				ctx,
+			);
+			const body = new URLSearchParams(mock.calls[0].body);
+			expect(body.get("text")).toContain("*Heading*");
+			expect(body.get("text")).toContain("*bold*");
+			expect(body.get("text")).not.toContain("**bold**");
+		} finally {
+			mock.restore();
+		}
+	});
+
+	it("coworker_update_slack_message converts markdown to mrkdwn", async () => {
+		const mock = mockSlackFetch();
+		try {
+			await slackTools.coworker_update_slack_message(
+				{ channel: "C123", timestamp: "1234.5678", text: "~~deleted~~ text" },
+				ctx,
+			);
+			const body = new URLSearchParams(mock.calls[0].body);
+			expect(body.get("text")).toBe("~deleted~ text");
+		} finally {
+			mock.restore();
+		}
 	});
 });
 
