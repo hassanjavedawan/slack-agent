@@ -1,0 +1,545 @@
+import type { PrismaClient } from "@openviktor/db";
+import type {
+	PipedreamAction,
+	PipedreamClient,
+	PipedreamConfigurableProp,
+} from "@openviktor/integrations";
+import type { LLMToolDefinition } from "@openviktor/shared";
+import type { ToolExecutor } from "../../registry.js";
+import type { ToolRegistry } from "../../registry.js";
+import { actionKeyToToolName, convertConfigurableProps } from "./schema-converter.js";
+
+interface IntegrationAccountRow {
+	id: string;
+	workspaceId: string;
+	appSlug: string;
+	appName: string;
+	authProvisionId: string;
+	externalUserId: string;
+}
+
+export function createPipedreamActionExecutor(
+	client: PipedreamClient,
+	prisma: PrismaClient,
+	account: IntegrationAccountRow,
+	action: { id: string; key: string; appPropName?: string },
+	skipPermissions: boolean,
+): ToolExecutor {
+	return async (args, ctx) => {
+		if (!skipPermissions) {
+			const permissionResult = await requestPermission(
+				prisma,
+				ctx.workspaceId,
+				args._agentRunId as string | undefined,
+				actionKeyToToolName(account.appSlug, action.key),
+				args,
+			);
+			if (permissionResult) return permissionResult;
+		}
+
+		const configuredProps: Record<string, unknown> = { ...args };
+		delete configuredProps._agentRunId;
+
+		if (action.appPropName) {
+			configuredProps[action.appPropName] = {
+				authProvisionId: account.authProvisionId,
+			};
+		}
+
+		const result = await client.runAction({
+			actionId: action.id,
+			externalUserId: account.externalUserId,
+			configuredProps,
+		});
+
+		if (result.error) {
+			return { output: null, durationMs: 0, error: result.error };
+		}
+
+		return { output: result.return_value ?? result.exports ?? { success: true }, durationMs: 0 };
+	};
+}
+
+export function createPipedreamConfigureExecutor(
+	client: PipedreamClient,
+	account: IntegrationAccountRow,
+): ToolExecutor {
+	return async (args) => {
+		const actionKey = args.action as string;
+		const propName = args.prop_name as string;
+
+		if (!actionKey || !propName) {
+			return { output: null, durationMs: 0, error: "Both action and prop_name are required" };
+		}
+
+		const result = await client.configure({
+			actionKey,
+			propName,
+			externalUserId: account.externalUserId,
+			configuredProps: (args.configured_props as Record<string, unknown>) ?? {},
+		});
+
+		return { output: result, durationMs: 0 };
+	};
+}
+
+export function createPipedreamProxyExecutor(
+	client: PipedreamClient,
+	prisma: PrismaClient,
+	account: IntegrationAccountRow,
+	method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
+	skipPermissions: boolean,
+): ToolExecutor {
+	return async (args, ctx) => {
+		const requiresPermission = method !== "GET" && !skipPermissions;
+		if (requiresPermission) {
+			const toolName = `mcp_pd_${account.appSlug}_proxy_${method.toLowerCase()}`;
+			const permissionResult = await requestPermission(
+				prisma,
+				ctx.workspaceId,
+				args._agentRunId as string | undefined,
+				toolName,
+				args,
+			);
+			if (permissionResult) return permissionResult;
+		}
+
+		const url = args.url as string;
+		if (!url) {
+			return { output: null, durationMs: 0, error: "url is required" };
+		}
+
+		const result = await client.proxyRequest({
+			app: account.appSlug,
+			method,
+			url,
+			externalUserId: account.externalUserId,
+			authProvisionId: account.authProvisionId,
+			body: args.body as unknown,
+			headers: args.headers as Record<string, string> | undefined,
+		});
+
+		return { output: result, durationMs: 0 };
+	};
+}
+
+async function requestPermission(
+	prisma: PrismaClient,
+	workspaceId: string,
+	agentRunId: string | undefined,
+	toolName: string,
+	toolInput: Record<string, unknown>,
+): Promise<{ output: unknown; durationMs: number; error?: string } | null> {
+	if (!agentRunId) return null;
+
+	const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+	const approvalCode = crypto.randomUUID();
+
+	const request = await prisma.permissionRequest.create({
+		data: {
+			workspaceId,
+			agentRunId,
+			toolName,
+			toolInput: toolInput as object,
+			approvalCode,
+			expiresAt,
+		},
+	});
+
+	const POLL_INTERVAL_MS = 2000;
+	const MAX_WAIT_MS = 5 * 60 * 1000;
+	const start = Date.now();
+
+	while (Date.now() - start < MAX_WAIT_MS) {
+		await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+
+		const updated = await prisma.permissionRequest.findUnique({
+			where: { id: request.id },
+		});
+
+		if (!updated) {
+			return {
+				output: null,
+				durationMs: Date.now() - start,
+				error: "Permission request not found",
+			};
+		}
+
+		if (updated.status === "APPROVED") {
+			return null; // Proceed with execution
+		}
+
+		if (updated.status === "REJECTED") {
+			return {
+				output: null,
+				durationMs: Date.now() - start,
+				error: `Permission rejected by ${updated.approvedBy ?? "user"}`,
+			};
+		}
+
+		if (updated.status === "EXPIRED" || new Date() >= updated.expiresAt) {
+			await prisma.permissionRequest.update({
+				where: { id: request.id },
+				data: { status: "EXPIRED" },
+			});
+			return {
+				output: null,
+				durationMs: Date.now() - start,
+				error: "Permission request timed out (5 min). Ask the user to approve and try again.",
+			};
+		}
+	}
+
+	return {
+		output: null,
+		durationMs: Date.now() - start,
+		error: "Permission request timed out",
+	};
+}
+
+function makeConfigureDefinition(appSlug: string, appName: string): LLMToolDefinition {
+	return {
+		name: `mcp_pd_${appSlug}_configure`,
+		description: `Discover dynamic properties for ${appName} actions (e.g., available spreadsheet IDs, project names).`,
+		input_schema: {
+			type: "object",
+			properties: {
+				action: { type: "string", description: "The action key (from tool description)" },
+				prop_name: { type: "string", description: "The property to resolve" },
+				configured_props: {
+					type: "object",
+					description: "Already-configured properties for context (optional)",
+				},
+			},
+			required: ["action", "prop_name"],
+		},
+	};
+}
+
+function makeProxyDefinition(appSlug: string, appName: string, method: string): LLMToolDefinition {
+	const needsBody = method !== "GET" && method !== "DELETE";
+	const properties: Record<string, unknown> = {
+		url: { type: "string", description: `The API URL to ${method}` },
+		headers: { type: "object", description: "Custom HTTP headers (optional)" },
+	};
+	const required = ["url"];
+
+	if (needsBody) {
+		properties.body = { type: "object", description: "Request body" };
+	}
+
+	return {
+		name: `mcp_pd_${appSlug}_proxy_${method.toLowerCase()}`,
+		description: `Raw HTTP ${method} request through ${appName}'s authenticated API proxy.`,
+		input_schema: { type: "object", properties, required },
+	};
+}
+
+export function generateSkillContent(
+	appSlug: string,
+	appName: string,
+	actions: PipedreamAction[],
+): string {
+	const lines: string[] = ["---", `name: pd_${appSlug}`, `description: >`];
+
+	const actionNames = actions
+		.slice(0, 5)
+		.map((a: PipedreamAction) => a.name)
+		.join(", ");
+	lines.push(`  ${actionNames} via ${appName}.`);
+	lines.push("---");
+	lines.push("");
+	lines.push("## Available Tools");
+	lines.push("");
+
+	for (const action of actions) {
+		const toolName = actionKeyToToolName(appSlug, action.key);
+		lines.push(`### ${toolName}`);
+		lines.push(action.description ?? action.name);
+
+		const userProps = action.configurable_props.filter(
+			(p: PipedreamConfigurableProp) => p.type !== "app",
+		);
+		if (userProps.length > 0) {
+			const params = userProps
+				.map((p) => `${p.name} (${p.type}${p.optional ? ", optional" : ""})`)
+				.join(", ");
+			lines.push(`Parameters: ${params}`);
+		}
+		lines.push("");
+	}
+
+	lines.push(`### mcp_pd_${appSlug}_configure`);
+	lines.push(`Discover dynamic properties like available IDs and names.`);
+	lines.push(`Parameters: action (string), prop_name (string)`);
+	lines.push("");
+
+	for (const method of ["get", "post", "put", "patch", "delete"]) {
+		lines.push(`### mcp_pd_${appSlug}_proxy_${method}`);
+		lines.push(`Raw HTTP ${method.toUpperCase()} request through ${appName} API auth.`);
+		lines.push(
+			`Parameters: url (string)${method !== "get" && method !== "delete" ? ", body (object, optional)" : ""}, headers (object, optional)`,
+		);
+		lines.push("");
+	}
+
+	return lines.join("\n");
+}
+
+export interface RegisteredIntegrationTools {
+	toolNames: string[];
+	skillDescription: string;
+}
+
+export async function registerIntegrationTools(
+	registry: ToolRegistry,
+	client: PipedreamClient,
+	prisma: PrismaClient,
+	account: IntegrationAccountRow,
+	actions: PipedreamAction[],
+	skipPermissions: boolean,
+): Promise<RegisteredIntegrationTools> {
+	const toolNames: string[] = [];
+
+	for (const action of actions) {
+		const toolName = actionKeyToToolName(account.appSlug, action.key);
+		const inputSchema = convertConfigurableProps(action.configurable_props);
+		const appPropName = action.configurable_props.find((p) => p.type === "app")?.name;
+
+		const definition: LLMToolDefinition = {
+			name: toolName,
+			description: action.description ?? action.name,
+			input_schema: inputSchema,
+		};
+
+		const executor = createPipedreamActionExecutor(
+			client,
+			prisma,
+			account,
+			{ id: action.id, key: action.key, appPropName },
+			skipPermissions,
+		);
+
+		registry.register(toolName, definition, executor);
+		toolNames.push(toolName);
+
+		await prisma.toolDefinition.upsert({
+			where: { name: toolName },
+			update: {
+				description: definition.description,
+				schema: JSON.parse(JSON.stringify(inputSchema)),
+				config: {
+					actionId: action.id,
+					actionKey: action.key,
+					actionVersion: action.version,
+					appSlug: account.appSlug,
+					appPropName,
+					authProvisionId: account.authProvisionId,
+					externalUserId: account.externalUserId,
+				},
+			},
+			create: {
+				name: toolName,
+				description: definition.description,
+				type: "PIPEDREAM",
+				schema: JSON.parse(JSON.stringify(inputSchema)),
+				config: {
+					actionId: action.id,
+					actionKey: action.key,
+					actionVersion: action.version,
+					appSlug: account.appSlug,
+					appPropName,
+					authProvisionId: account.authProvisionId,
+					externalUserId: account.externalUserId,
+				},
+			},
+		});
+	}
+
+	// Configure tool
+	const configureDef = makeConfigureDefinition(account.appSlug, account.appName);
+	registry.register(
+		configureDef.name,
+		configureDef,
+		createPipedreamConfigureExecutor(client, account),
+	);
+	toolNames.push(configureDef.name);
+
+	// Proxy tools
+	const methods = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
+	for (const method of methods) {
+		const proxyDef = makeProxyDefinition(account.appSlug, account.appName, method);
+		registry.register(
+			proxyDef.name,
+			proxyDef,
+			createPipedreamProxyExecutor(client, prisma, account, method, skipPermissions),
+		);
+		toolNames.push(proxyDef.name);
+	}
+
+	// Generate SKILL.md and store it
+	const skillContent = generateSkillContent(account.appSlug, account.appName, actions);
+	const skillName = `pd_${account.appSlug}`;
+	const actionNames = actions
+		.slice(0, 5)
+		.map((a) => a.name)
+		.join(", ");
+	const skillDescription = `${actionNames} via ${account.appName}`;
+
+	await prisma.skill.upsert({
+		where: {
+			workspaceId_name: {
+				workspaceId: account.workspaceId,
+				name: skillName,
+			},
+		},
+		update: { content: skillContent, description: skillDescription, version: { increment: 1 } },
+		create: {
+			workspaceId: account.workspaceId,
+			name: skillName,
+			description: skillDescription,
+			content: skillContent,
+		},
+	});
+
+	return { toolNames, skillDescription };
+}
+
+export async function unregisterIntegrationTools(
+	registry: ToolRegistry,
+	prisma: PrismaClient,
+	workspaceId: string,
+	appSlug: string,
+): Promise<string[]> {
+	const toolDefs = await prisma.toolDefinition.findMany({
+		where: {
+			type: "PIPEDREAM",
+			name: { startsWith: `mcp_pd_${appSlug}_` },
+		},
+	});
+
+	const removed: string[] = [];
+	for (const td of toolDefs) {
+		registry.unregister(td.name);
+		removed.push(td.name);
+	}
+
+	await prisma.toolDefinition.deleteMany({
+		where: {
+			type: "PIPEDREAM",
+			name: { startsWith: `mcp_pd_${appSlug}_` },
+		},
+	});
+
+	await prisma.skill.deleteMany({
+		where: {
+			workspaceId,
+			name: `pd_${appSlug}`,
+		},
+	});
+
+	return removed;
+}
+
+export async function restoreToolsFromDb(
+	registry: ToolRegistry,
+	client: PipedreamClient,
+	prisma: PrismaClient,
+	skipPermissions: boolean,
+): Promise<string[]> {
+	const toolDefs = await prisma.toolDefinition.findMany({
+		where: { type: "PIPEDREAM", enabled: true },
+	});
+
+	const restored: string[] = [];
+
+	for (const td of toolDefs) {
+		const config = td.config as Record<string, unknown>;
+		const appSlug = config.appSlug as string;
+		const actionId = config.actionId as string;
+		const actionKey = config.actionKey as string;
+		const appPropName = config.appPropName as string | undefined;
+		const authProvisionId = config.authProvisionId as string;
+		const externalUserId = config.externalUserId as string;
+
+		if (!appSlug || !actionId || !actionKey) continue;
+
+		const account: IntegrationAccountRow = {
+			id: "",
+			workspaceId: "",
+			appSlug,
+			appName: appSlug,
+			authProvisionId: authProvisionId ?? "",
+			externalUserId: externalUserId ?? "",
+		};
+
+		const definition: LLMToolDefinition = {
+			name: td.name,
+			description: td.description,
+			input_schema: td.schema as Record<string, unknown>,
+		};
+
+		const executor = createPipedreamActionExecutor(
+			client,
+			prisma,
+			account,
+			{ id: actionId, key: actionKey, appPropName },
+			skipPermissions,
+		);
+
+		registry.register(td.name, definition, executor);
+		restored.push(td.name);
+	}
+
+	// Restore configure + proxy tools per unique app
+	const uniqueApps = new Map<string, IntegrationAccountRow>();
+	for (const td of toolDefs) {
+		const config = td.config as Record<string, unknown>;
+		const appSlug = config.appSlug as string;
+		if (!appSlug || uniqueApps.has(appSlug)) continue;
+
+		const accounts = await prisma.integrationAccount.findMany({
+			where: { appSlug, status: "ACTIVE" },
+			take: 1,
+		});
+
+		if (accounts.length > 0) {
+			const acct = accounts[0];
+			uniqueApps.set(appSlug, {
+				id: acct.id,
+				workspaceId: acct.workspaceId,
+				appSlug: acct.appSlug,
+				appName: acct.appName,
+				authProvisionId: acct.authProvisionId,
+				externalUserId: acct.externalUserId,
+			});
+		}
+	}
+
+	for (const [appSlug, account] of uniqueApps) {
+		const configureDef = makeConfigureDefinition(appSlug, account.appName);
+		if (!registry.has(configureDef.name)) {
+			registry.register(
+				configureDef.name,
+				configureDef,
+				createPipedreamConfigureExecutor(client, account),
+			);
+			restored.push(configureDef.name);
+		}
+
+		const methods = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
+		for (const method of methods) {
+			const proxyDef = makeProxyDefinition(appSlug, account.appName, method);
+			if (!registry.has(proxyDef.name)) {
+				registry.register(
+					proxyDef.name,
+					proxyDef,
+					createPipedreamProxyExecutor(client, prisma, account, method, skipPermissions),
+				);
+				restored.push(proxyDef.name);
+			}
+		}
+	}
+
+	return restored;
+}

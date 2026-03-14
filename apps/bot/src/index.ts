@@ -1,11 +1,27 @@
 import { prisma } from "@openviktor/db";
+import { PipedreamClient } from "@openviktor/integrations";
+import type { PipedreamConfig } from "@openviktor/integrations";
 import { createLogger, loadConfig } from "@openviktor/shared";
 import {
 	LocalToolBackend,
 	ModalToolBackend,
 	ToolGatewayClient,
+	connectIntegrationDefinition,
+	createConnectIntegrationExecutor,
+	createDisconnectIntegrationExecutor,
+	createIntegrationSyncHandler,
+	createListAvailableIntegrationsExecutor,
+	createListWorkspaceConnectionsExecutor,
 	createNativeRegistry,
+	createSubmitPermissionRequestExecutor,
+	createSyncWorkspaceConnectionsExecutor,
+	disconnectIntegrationDefinition,
+	listAvailableIntegrationsDefinition,
+	listWorkspaceConnectionsDefinition,
 	registerDbTools,
+	restoreToolsFromDb,
+	submitPermissionRequestDefinition,
+	syncWorkspaceConnectionsDefinition,
 } from "@openviktor/tools";
 import type { RegistryConfig, ToolBackend } from "@openviktor/tools";
 import { LLMGateway } from "./agent/gateway.js";
@@ -24,6 +40,7 @@ import {
 	createDeduplicator,
 	createSlackApp,
 	registerEventHandlers,
+	registerInteractionHandlers,
 	startSlackApp,
 } from "./slack/index.js";
 import { createConcurrencyLimiter } from "./thread/concurrency.js";
@@ -149,6 +166,66 @@ async function main(): Promise<void> {
 	registry.register("trigger_cron_job", triggerCronJobDefinition, cronTools.trigger_cron_job);
 	registry.register("list_cron_jobs", listCronJobsDefinition, cronTools.list_cron_jobs);
 
+	// Pipedream integration tools
+	const hasPipedream = !!(
+		config.PIPEDREAM_CLIENT_ID &&
+		config.PIPEDREAM_CLIENT_SECRET &&
+		config.PIPEDREAM_PROJECT_ID
+	);
+	if (hasPipedream) {
+		const pdConfig: PipedreamConfig = {
+			clientId: config.PIPEDREAM_CLIENT_ID as string,
+			clientSecret: config.PIPEDREAM_CLIENT_SECRET as string,
+			projectId: config.PIPEDREAM_PROJECT_ID as string,
+			environment: config.PIPEDREAM_ENVIRONMENT,
+		};
+		const pdClient = new PipedreamClient(pdConfig);
+		const skipPermissions = config.DANGEROUSLY_SKIP_PERMISSIONS;
+
+		const syncHandler = createIntegrationSyncHandler(registry, pdClient, prisma, skipPermissions);
+
+		registry.register(
+			"list_available_integrations",
+			listAvailableIntegrationsDefinition,
+			createListAvailableIntegrationsExecutor(pdClient),
+		);
+		registry.register(
+			"list_workspace_connections",
+			listWorkspaceConnectionsDefinition,
+			createListWorkspaceConnectionsExecutor(prisma),
+		);
+		registry.register(
+			"connect_integration",
+			connectIntegrationDefinition,
+			createConnectIntegrationExecutor(pdClient, prisma, config.SLACK_BOT_TOKEN),
+		);
+		registry.register(
+			"disconnect_integration",
+			disconnectIntegrationDefinition,
+			createDisconnectIntegrationExecutor(syncHandler),
+		);
+		registry.register(
+			"sync_workspace_connections",
+			syncWorkspaceConnectionsDefinition,
+			createSyncWorkspaceConnectionsExecutor(syncHandler),
+		);
+		registry.register(
+			"submit_permission_request",
+			submitPermissionRequestDefinition,
+			createSubmitPermissionRequestExecutor(prisma),
+		);
+
+		// Restore dynamic tools from DB (restart resilience)
+		const restored = await restoreToolsFromDb(registry, pdClient, prisma, skipPermissions);
+		if (restored.length > 0) {
+			logger.info({ count: restored.length }, "Restored Pipedream tools from database");
+		}
+
+		logger.info("Pipedream integration enabled");
+	} else {
+		logger.info("Pipedream integration disabled (no credentials configured)");
+	}
+
 	runner.updateToolConfig({
 		client: gatewayClient,
 		tools: registry.getDefinitions(),
@@ -162,6 +239,7 @@ async function main(): Promise<void> {
 	app.use(createBotFilter(logger));
 
 	registerEventHandlers(app, { prisma, runner, logger });
+	registerInteractionHandlers(app, { prisma, logger: createLogger("interactions") });
 
 	await startSlackApp(app);
 

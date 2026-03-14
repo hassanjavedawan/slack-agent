@@ -263,3 +263,21 @@ export function registerDbTools(registry: ToolRegistry, prisma: PrismaClient): v
 	registry.register("list_skills", listSkillsDefinition, createListSkillsExecutor(prisma));
 	registry.register("write_skill", writeSkillDefinition, createWriteSkillExecutor(prisma));
 }
+
+export {
+	listAvailableIntegrationsDefinition,
+	listWorkspaceConnectionsDefinition,
+	connectIntegrationDefinition,
+	disconnectIntegrationDefinition,
+	syncWorkspaceConnectionsDefinition,
+	createListAvailableIntegrationsExecutor,
+	createListWorkspaceConnectionsExecutor,
+	createConnectIntegrationExecutor,
+	createDisconnectIntegrationExecutor,
+	createSyncWorkspaceConnectionsExecutor,
+	createIntegrationSyncHandler,
+	restoreToolsFromDb,
+	convertConfigurableProps,
+	actionKeyToToolName,
+} from "./integrations/index.js";
+export type { IntegrationSyncHandler } from "./integrations/index.js";

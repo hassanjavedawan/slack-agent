@@ -6,6 +6,7 @@ export interface PromptContext {
 	triggerType: TriggerType;
 	userName?: string;
 	skillCatalog?: string[];
+	integrationCatalog?: string[];
 	cronJobName?: string;
 	heartbeatPrompt?: string;
 	discoveryPrompt?: string;
@@ -93,6 +94,23 @@ export function buildSystemPrompt(ctx: PromptContext): string {
 		for (const entry of ctx.skillCatalog) {
 			lines.push(`- ${entry}`);
 		}
+	}
+
+	lines.push("");
+	lines.push("## Integrations");
+	lines.push("You can connect to 3,000+ third-party services via Pipedream.");
+	lines.push("- Use `list_available_integrations` to search for apps.");
+	lines.push("- Use `connect_integration` to help users connect new apps.");
+	lines.push("- Use `read_skill` to load full documentation for any connected integration.");
+	lines.push("");
+
+	if (ctx.integrationCatalog && ctx.integrationCatalog.length > 0) {
+		lines.push("Connected integrations:");
+		for (const entry of ctx.integrationCatalog) {
+			lines.push(`- ${entry}`);
+		}
+	} else {
+		lines.push("Connected integrations: None yet — use `list_available_integrations` to explore.");
 	}
 
 	return lines.join("\n");

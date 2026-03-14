@@ -31,6 +31,11 @@ export class ToolRegistry {
 		return this.tools.has(name);
 	}
 
+	unregister(name: string): boolean {
+		this.failures.delete(name);
+		return this.tools.delete(name);
+	}
+
 	getDefinitions(): LLMToolDefinition[] {
 		return Array.from(this.tools.values()).map((t) => t.definition);
 	}

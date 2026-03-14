@@ -498,6 +498,12 @@ export class AgentRunner {
 		};
 	}
 
+	private resolveToolType(toolName: string): "NATIVE" | "PIPEDREAM" | "MCP" | "CUSTOM" {
+		if (toolName.startsWith("mcp_pd_")) return "PIPEDREAM";
+		if (toolName.startsWith("mcp_")) return "MCP";
+		return "NATIVE";
+	}
+
 	private async persistToolCall(
 		agentRunId: string,
 		toolUse: ToolUseBlock,
@@ -510,7 +516,7 @@ export class AgentRunner {
 			data: {
 				agentRunId,
 				toolName: toolUse.name,
-				toolType: "NATIVE",
+				toolType: this.resolveToolType(toolUse.name),
 				input: toolUse.input as object,
 				output: error
 					? { error }
