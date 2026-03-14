@@ -8,7 +8,7 @@ const VALID_TRANSITIONS: ReadonlyMap<ThreadPhaseValue, readonly ThreadPhaseValue
 	[ThreadPhase.THREAD_LOCK, [ThreadPhase.REASONING]],
 	[ThreadPhase.REASONING, [ThreadPhase.TOOL_LOOP, ThreadPhase.DRAFT_GATE, ThreadPhase.COMPLETION]],
 	[ThreadPhase.TOOL_LOOP, [ThreadPhase.REASONING, ThreadPhase.DRAFT_GATE, ThreadPhase.COMPLETION]],
-	[ThreadPhase.DRAFT_GATE, [ThreadPhase.PROGRESS, ThreadPhase.COMPLETION]],
+	[ThreadPhase.DRAFT_GATE, [ThreadPhase.TOOL_LOOP, ThreadPhase.PROGRESS, ThreadPhase.COMPLETION]],
 	[ThreadPhase.PROGRESS, [ThreadPhase.COMPLETION]],
 	[ThreadPhase.COMPLETION, [ThreadPhase.IDLE]],
 ]);

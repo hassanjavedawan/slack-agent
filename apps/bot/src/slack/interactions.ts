@@ -43,6 +43,7 @@ export function registerInteractionHandlers(app: App, ctx: InteractionContext): 
 					status === "PENDING"
 						? "Permission request expired."
 						: `Permission request already ${status.toLowerCase()}.`,
+					ctx.logger,
 				);
 				return;
 			}
@@ -52,6 +53,7 @@ export function registerInteractionHandlers(app: App, ctx: InteractionContext): 
 				request?.slackChannel ?? null,
 				request?.slackMessageTs ?? null,
 				`Approved by <@${userId}>. Executing \`${request?.toolName}\`...`,
+				ctx.logger,
 			);
 
 			ctx.logger.info({ requestId, userId }, "Permission approved");
@@ -93,6 +95,7 @@ export function registerInteractionHandlers(app: App, ctx: InteractionContext): 
 					request?.slackChannel ?? null,
 					request?.slackMessageTs ?? null,
 					`Permission request already ${status.toLowerCase()}.`,
+					ctx.logger,
 				);
 				return;
 			}
@@ -102,6 +105,7 @@ export function registerInteractionHandlers(app: App, ctx: InteractionContext): 
 				request?.slackChannel ?? null,
 				request?.slackMessageTs ?? null,
 				`Rejected by <@${userId}>.`,
+				ctx.logger,
 			);
 
 			ctx.logger.info({ requestId, userId }, "Permission rejected");
@@ -116,6 +120,7 @@ async function updateMessage(
 	channel: string | null,
 	ts: string | null,
 	text: string,
+	logger?: Logger,
 ): Promise<void> {
 	if (!channel || !ts) return;
 	try {
@@ -130,8 +135,8 @@ async function updateMessage(
 			};
 		};
 		await slackClient.chat.update({ channel, ts, text, blocks: [] });
-	} catch {
-		// Best-effort message update
+	} catch (err) {
+		logger?.warn({ err, channel, ts }, "Failed to update permission message");
 	}
 }
 

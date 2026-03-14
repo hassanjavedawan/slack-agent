@@ -216,6 +216,24 @@ function isRecord(value: unknown): value is JsonRecord {
 	return typeof value === "object" && value !== null;
 }
 
+function convertBlocksMrkdwn(value: unknown): unknown {
+	if (Array.isArray(value)) {
+		return value.map(convertBlocksMrkdwn);
+	}
+	if (typeof value === "object" && value !== null) {
+		const obj = value as Record<string, unknown>;
+		const converted: Record<string, unknown> = {};
+		for (const [k, v] of Object.entries(obj)) {
+			converted[k] = convertBlocksMrkdwn(v);
+		}
+		if (converted.type === "mrkdwn" && typeof converted.text === "string") {
+			converted.text = markdownToMrkdwn(converted.text);
+		}
+		return converted;
+	}
+	return value;
+}
+
 function getRequiredString(args: Record<string, unknown>, key: string): string {
 	const value = args[key];
 	if (typeof value !== "string" || value.length === 0) {
@@ -484,7 +502,9 @@ function parseSendMessageArgs(args: Record<string, unknown>): SendMessageArgs {
 		? args.permission_request_draft_ids.filter((id): id is string => typeof id === "string")
 		: undefined;
 	const detailedApprovalContext = getOptionalString(args, "detailed_approval_context");
-	const inputBlocks = Array.isArray(args.blocks) ? args.blocks : [];
+	const inputBlocks = Array.isArray(args.blocks)
+		? (convertBlocksMrkdwn(args.blocks) as unknown[])
+		: [];
 	const blocks =
 		messageType === "permission_request"
 			? buildPermissionRequestBlocks(
@@ -608,10 +628,12 @@ function createCoworkerUpdateSlackMessageExecutor(slackToken: string): ToolExecu
 			const channel = getRequiredString(args, "channel");
 			const timestamp = getRequiredString(args, "timestamp");
 			const text = markdownToMrkdwn(getRequiredString(args, "text"));
-			const blocks = args.blocks;
+			const blocks = Array.isArray(args.blocks)
+				? (convertBlocksMrkdwn(args.blocks) as unknown[])
+				: undefined;
 
 			const params: Record<string, string> = { channel, ts: timestamp, text };
-			if (Array.isArray(blocks) && blocks.length > 0) {
+			if (blocks && blocks.length > 0) {
 				params.blocks = JSON.stringify(blocks);
 			}
 

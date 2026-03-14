@@ -781,6 +781,7 @@ export class AgentRunner {
 				{ agentRunId, permissionRequestId, tool: toolName },
 				"Permission approved, re-executing tool",
 			);
+			await transitionPhase(this.prisma, threadId, ThreadPhase.TOOL_LOOP);
 			return this.reExecuteApprovedTool(toolUse, agentRunId, permissionRequestId);
 		}
 
@@ -789,6 +790,7 @@ export class AgentRunner {
 				{ agentRunId, permissionRequestId, tool: toolName, by: result.by },
 				"Permission rejected",
 			);
+			await transitionPhase(this.prisma, threadId, ThreadPhase.TOOL_LOOP);
 			return {
 				block: {
 					type: "tool_result",
@@ -804,6 +806,7 @@ export class AgentRunner {
 			{ agentRunId, permissionRequestId, tool: toolName },
 			"Permission request timed out",
 		);
+		await transitionPhase(this.prisma, threadId, ThreadPhase.TOOL_LOOP);
 		return {
 			block: {
 				type: "tool_result",

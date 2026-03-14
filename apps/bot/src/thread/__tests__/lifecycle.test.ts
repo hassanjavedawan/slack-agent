@@ -49,6 +49,19 @@ describe("isValidTransition", () => {
 		expect(isValidTransition(ThreadPhase.TOOL_LOOP, ThreadPhase.COMPLETION)).toBe(true);
 	});
 
+	it("allows DRAFT_GATE → TOOL_LOOP (resume after permission gate)", () => {
+		expect(isValidTransition(ThreadPhase.DRAFT_GATE, ThreadPhase.TOOL_LOOP)).toBe(true);
+	});
+
+	it("allows DRAFT_GATE → PROGRESS and DRAFT_GATE → COMPLETION", () => {
+		expect(isValidTransition(ThreadPhase.DRAFT_GATE, ThreadPhase.PROGRESS)).toBe(true);
+		expect(isValidTransition(ThreadPhase.DRAFT_GATE, ThreadPhase.COMPLETION)).toBe(true);
+	});
+
+	it("rejects DRAFT_GATE → REASONING (must go via TOOL_LOOP)", () => {
+		expect(isValidTransition(ThreadPhase.DRAFT_GATE, ThreadPhase.REASONING)).toBe(false);
+	});
+
 	it("rejects invalid transitions", () => {
 		expect(isValidTransition(ThreadPhase.IDLE, ThreadPhase.COMPLETION)).toBe(false);
 		expect(isValidTransition(ThreadPhase.TRIGGER, ThreadPhase.TOOL_LOOP)).toBe(false);

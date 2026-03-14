@@ -248,6 +248,43 @@ describe("slack message mrkdwn conversion", () => {
 		}
 	});
 
+	it("coworker_send_slack_message converts markdown inside Block Kit blocks", async () => {
+		const mock = mockSlackFetch();
+		try {
+			await slackTools.coworker_send_slack_message(
+				{
+					channel: "C123",
+					text: "fallback",
+					do_send: true,
+					reflection: "test",
+					blocks: [
+						{
+							type: "section",
+							text: { type: "mrkdwn", text: "**HUM-282** - Wierd formatting" },
+						},
+						{
+							type: "context",
+							elements: [{ type: "mrkdwn", text: "Priority: **High**" }],
+						},
+						{
+							type: "section",
+							text: { type: "plain_text", text: "**not converted**" },
+						},
+					],
+				},
+				ctx,
+			);
+			const body = new URLSearchParams(mock.calls[0].body);
+			const blocks = JSON.parse(body.get("blocks") ?? "[]");
+			expect(blocks[0].text.text).toBe("*HUM-282* - Wierd formatting");
+			expect(blocks[1].elements[0].text).toBe("Priority: *High*");
+			// plain_text blocks should NOT be converted
+			expect(blocks[2].text.text).toBe("**not converted**");
+		} finally {
+			mock.restore();
+		}
+	});
+
 	it("coworker_update_slack_message converts markdown to mrkdwn", async () => {
 		const mock = mockSlackFetch();
 		try {
