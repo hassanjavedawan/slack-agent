@@ -49,24 +49,14 @@ function triggerLabel(triggerType: TriggerType): string {
 	}
 }
 
-function identity(ctx: PromptContext): string {
-	return `You are OpenViktor, an AI coworker in the "${ctx.workspaceName}" Slack workspace.`;
-}
-
-function buildSpecializedPrompt(
-	workspaceName: string,
-	prompt: string,
-	preamble?: string,
-): string {
-	const lines = [
-		`You are OpenViktor, an AI coworker in the "${workspaceName}" Slack workspace.`,
-	];
+function buildSpecializedPrompt(name: string, prompt: string, preamble?: string): string {
+	const lines = [`You are OpenViktor, an AI coworker in the "${name}" Slack workspace.`];
 	if (preamble) lines.push(preamble);
 	lines.push("", prompt);
 	return lines.join("\n");
 }
 
-export function buildSystemPrompt(ctx: PromptContext): string {
+function resolveSpecializedPrompt(ctx: PromptContext): string | null {
 	if (ctx.onboardingPrompt) {
 		return buildSpecializedPrompt(
 			ctx.workspaceName,
@@ -74,18 +64,21 @@ export function buildSystemPrompt(ctx: PromptContext): string {
 			"This is your FIRST interaction with this workspace — make a great first impression.",
 		);
 	}
-
 	if (ctx.channelIntroPrompt) {
 		return buildSpecializedPrompt(ctx.workspaceName, ctx.channelIntroPrompt);
 	}
-
 	if (ctx.heartbeatPrompt) {
-		return [identity(ctx), "", ctx.heartbeatPrompt].join("\n");
+		return buildSpecializedPrompt(ctx.workspaceName, ctx.heartbeatPrompt);
 	}
-
 	if (ctx.discoveryPrompt) {
-		return [identity(ctx), "", ctx.discoveryPrompt].join("\n");
+		return buildSpecializedPrompt(ctx.workspaceName, ctx.discoveryPrompt);
 	}
+	return null;
+}
+
+export function buildSystemPrompt(ctx: PromptContext): string {
+	const specialized = resolveSpecializedPrompt(ctx);
+	if (specialized) return specialized;
 
 	if (ctx.triggerType === "CRON") {
 		return buildCronPrompt(ctx);

@@ -3,10 +3,10 @@ import type { Logger, TriggerType } from "@openviktor/shared";
 import type { PromptContext } from "../agent/prompt.js";
 import type { AgentRunner, RunTrigger } from "../agent/runner.js";
 import { fetchActiveThreads } from "../thread/index.js";
+import { buildChannelIntroPrompt } from "./channel-intro.js";
 import { type ConditionContext, evaluateCondition } from "./condition.js";
 import { checkCostControl, getModelForTier } from "./cost-control.js";
 import { calculateNextRun } from "./cron-parser.js";
-import { buildChannelIntroPrompt } from "./channel-intro.js";
 import { buildDiscoveryPrompt } from "./discovery.js";
 import {
 	DEFAULT_THRESHOLDS,
