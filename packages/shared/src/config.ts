@@ -29,9 +29,9 @@ const envSchema = z
 		TOOL_TIMEOUT_MS: z.coerce.number().default(600_000),
 		AGENT_TIMEOUT_MS: z.coerce.number().default(300_000),
 		BASH_DEFAULT_TIMEOUT_MS: z.coerce.number().default(120_000),
-		STALE_THREAD_TIMEOUT_MS: z.coerce.number().default(86_400_000), // 24 hours
-		STALE_CHECK_INTERVAL_MS: z.coerce.number().default(900_000), // 15 minutes
-		THREAD_LOCK_TIMEOUT_MS: z.coerce.number().default(300_000), // 5 minutes
+		STALE_THREAD_TIMEOUT_MS: z.coerce.number().int().min(60_000).default(86_400_000),
+		STALE_CHECK_INTERVAL_MS: z.coerce.number().int().min(10_000).default(900_000),
+		THREAD_LOCK_TIMEOUT_MS: z.coerce.number().int().min(10_000).default(300_000),
 		GITHUB_TOKEN: z.string().optional(),
 		BROWSERBASE_API_KEY: z.string().optional(),
 		CONTEXT7_BASE_URL: z.string().url().optional(),

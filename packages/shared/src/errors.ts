@@ -47,11 +47,7 @@ export class SlackError extends AppError {
 
 export class ThreadLockedError extends AppError {
 	constructor(threadId: string) {
-		super(
-			`Thread ${threadId} is locked by another agent run`,
-			"THREAD_LOCKED",
-			409,
-		);
+		super(`Thread ${threadId} is locked by another agent run`, "THREAD_LOCKED", 409);
 		this.name = "ThreadLockedError";
 	}
 }

@@ -57,18 +57,51 @@ describe("isValidTransition", () => {
 });
 
 describe("transitionPhase", () => {
-	it("updates the thread phase in the database", async () => {
+	it("validates and updates the thread phase with CAS", async () => {
 		const prisma = {
 			thread: {
-				update: vi.fn().mockResolvedValue({}),
+				findUniqueOrThrow: vi.fn().mockResolvedValue({ phase: ThreadPhase.THREAD_LOCK }),
+				updateMany: vi.fn().mockResolvedValue({ count: 1 }),
 			},
 		};
 
 		await transitionPhase(prisma as never, "thread_1", ThreadPhase.REASONING);
 
-		expect(prisma.thread.update).toHaveBeenCalledWith({
+		expect(prisma.thread.findUniqueOrThrow).toHaveBeenCalledWith({
 			where: { id: "thread_1" },
+			select: { phase: true },
+		});
+		expect(prisma.thread.updateMany).toHaveBeenCalledWith({
+			where: { id: "thread_1", phase: ThreadPhase.THREAD_LOCK },
 			data: { phase: ThreadPhase.REASONING },
 		});
+	});
+
+	it("throws on invalid transition", async () => {
+		const prisma = {
+			thread: {
+				findUniqueOrThrow: vi.fn().mockResolvedValue({ phase: ThreadPhase.IDLE }),
+				updateMany: vi.fn(),
+			},
+		};
+
+		await expect(
+			transitionPhase(prisma as never, "thread_1", ThreadPhase.COMPLETION),
+		).rejects.toThrow("Invalid phase transition: IDLE → COMPLETION");
+
+		expect(prisma.thread.updateMany).not.toHaveBeenCalled();
+	});
+
+	it("throws on concurrent modification", async () => {
+		const prisma = {
+			thread: {
+				findUniqueOrThrow: vi.fn().mockResolvedValue({ phase: ThreadPhase.THREAD_LOCK }),
+				updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+			},
+		};
+
+		await expect(
+			transitionPhase(prisma as never, "thread_1", ThreadPhase.REASONING),
+		).rejects.toThrow("Phase transition failed (concurrent modification)");
 	});
 });

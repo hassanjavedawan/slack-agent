@@ -12,6 +12,10 @@ vi.mock("../agent/gateway.js", () => ({
 	),
 }));
 
+vi.mock("../thread/lifecycle.js", () => ({
+	transitionPhase: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock("../slack/resolve.js", () => ({
 	resolveWorkspace: vi.fn().mockResolvedValue({
 		id: "ws_1",

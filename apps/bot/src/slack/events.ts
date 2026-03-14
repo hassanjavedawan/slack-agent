@@ -155,6 +155,26 @@ function orchestratorRejectionMessage(error: unknown): string | null {
 	return null;
 }
 
+async function handleEventError(
+	ctx: BotContext,
+	error: unknown,
+	eventName: string,
+	say: (opts: { text: string; thread_ts?: string }) => Promise<unknown>,
+	threadTs?: string,
+): Promise<void> {
+	const rejection = orchestratorRejectionMessage(error);
+	if (rejection) {
+		await safeReply(say, threadTs, rejection);
+		return;
+	}
+	ctx.logger.error({ err: error, event: eventName }, `Failed to handle ${eventName}`);
+	await safeReply(say, threadTs);
+}
+
+function isActionableMessage(msg: SlackMessage, botUserId?: string): boolean {
+	return !msg.subtype && !msg.bot_id && !!msg.user && !!msg.text && msg.user !== botUserId;
+}
+
 export function registerEventHandlers(app: App, ctx: BotContext): void {
 	app.event("app_mention", async ({ event, say, context, client }) => {
 		const threadTs = event.thread_ts ?? event.ts;
@@ -186,15 +206,7 @@ export function registerEventHandlers(app: App, ctx: BotContext): void {
 				slackUser,
 			);
 
-			const skills = await ctx.prisma.skill.findMany({
-				where: { workspaceId: workspace.id },
-				select: { name: true, description: true, version: true },
-				orderBy: { name: "asc" },
-			});
-			const skillCatalog = skills.map((s) => {
-				const desc = s.description ? ` — ${s.description}` : "";
-				return `${s.name} (v${s.version})${desc}`;
-			});
+			const skillCatalog = await fetchSkillCatalog(ctx.prisma, workspace.id);
 
 			const result = await ctx.runner.run({
 				workspaceId: workspace.id,
@@ -214,13 +226,7 @@ export function registerEventHandlers(app: App, ctx: BotContext): void {
 
 			await sendResponse(say, result.responseText, threadTs);
 		} catch (error) {
-			const rejection = orchestratorRejectionMessage(error);
-			if (rejection) {
-				await safeReply(say, threadTs, rejection);
-				return;
-			}
-			ctx.logger.error({ err: error, event: "app_mention" }, "Failed to handle mention");
-			await safeReply(say, threadTs);
+			await handleEventError(ctx, error, "app_mention", say, threadTs);
 		}
 	});
 
@@ -228,9 +234,7 @@ export function registerEventHandlers(app: App, ctx: BotContext): void {
 		const msg = event as unknown as SlackMessage;
 		const { teamId, botUserId, botToken } = context;
 
-		const isActionable =
-			!msg.subtype && !msg.bot_id && msg.user && msg.text && msg.user !== botUserId;
-		if (!isActionable) return;
+		if (!isActionableMessage(msg, botUserId)) return;
 
 		const isDm = msg.channel_type === "im";
 		if (!isDm && !msg.thread_ts) return;
@@ -243,14 +247,8 @@ export function registerEventHandlers(app: App, ctx: BotContext): void {
 		try {
 			await handleMessage(ctx, msg, client, teamId, botToken, botUserId, say);
 		} catch (error) {
-			const rejection = orchestratorRejectionMessage(error);
-			if (rejection) {
-				await safeReply(say, msg.thread_ts ?? msg.ts, rejection);
-				return;
-			}
 			const eventName = isDm ? "message_im" : "message_thread";
-			ctx.logger.error({ err: error, event: eventName }, "Failed to handle message");
-			await safeReply(say, msg.thread_ts);
+			await handleEventError(ctx, error, eventName, say, msg.thread_ts ?? msg.ts);
 		}
 	});
 }

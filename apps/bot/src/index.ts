@@ -19,9 +19,6 @@ import {
 	listCronJobsDefinition,
 	triggerCronJobDefinition,
 } from "./cron/index.js";
-import { createConcurrencyLimiter } from "./thread/concurrency.js";
-import { ThreadLock } from "./thread/lock.js";
-import { StaleThreadDetector } from "./thread/stale.js";
 import {
 	createBotFilter,
 	createDeduplicator,
@@ -29,6 +26,9 @@ import {
 	registerEventHandlers,
 	startSlackApp,
 } from "./slack/index.js";
+import { createConcurrencyLimiter } from "./thread/concurrency.js";
+import { ThreadLock } from "./thread/lock.js";
+import { StaleThreadDetector } from "./thread/stale.js";
 import { createToolGateway, registerWorkspaceToken } from "./tool-gateway/server.js";
 
 const logger = createLogger("bot");

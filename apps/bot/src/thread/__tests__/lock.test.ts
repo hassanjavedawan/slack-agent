@@ -1,3 +1,4 @@
+import { ThreadPhase } from "@openviktor/shared";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ThreadLock } from "../lock.js";
 
@@ -40,15 +41,12 @@ describe("ThreadLock", () => {
 			expect(prisma.thread.updateMany).toHaveBeenCalledWith({
 				where: {
 					id: "thread_1",
-					OR: [
-						{ lockedBy: null },
-						{ lockedAt: { lt: expect.any(Date) } },
-					],
+					OR: [{ lockedBy: null }, { lockedAt: { lt: expect.any(Date) } }],
 				},
 				data: {
 					lockedBy: "run_1",
 					lockedAt: expect.any(Date),
-					phase: 3,
+					phase: ThreadPhase.THREAD_LOCK,
 				},
 			});
 		});

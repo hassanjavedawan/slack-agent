@@ -8,19 +8,31 @@ export interface ConcurrencyLimiter {
 }
 
 export class InMemoryConcurrencyLimiter implements ConcurrencyLimiter {
-	private slots = new Map<string, Set<string>>();
+	private slots = new Map<string, Map<string, number>>();
 
 	constructor(
 		private maxConcurrent: number,
 		private logger: Logger,
+		private ttlMs = 600_000,
 	) {}
+
+	private evictStale(active: Map<string, number>): void {
+		const now = Date.now();
+		for (const [runId, ts] of active) {
+			if (now - ts > this.ttlMs) {
+				active.delete(runId);
+				this.logger.warn({ runId }, "Evicted stale concurrency slot");
+			}
+		}
+	}
 
 	async acquire(workspaceId: string, runId: string): Promise<boolean> {
 		let active = this.slots.get(workspaceId);
 		if (!active) {
-			active = new Set();
+			active = new Map();
 			this.slots.set(workspaceId, active);
 		}
+		this.evictStale(active);
 		if (active.size >= this.maxConcurrent) {
 			this.logger.warn(
 				{ workspaceId, runId, active: active.size, max: this.maxConcurrent },
@@ -28,11 +40,8 @@ export class InMemoryConcurrencyLimiter implements ConcurrencyLimiter {
 			);
 			return false;
 		}
-		active.add(runId);
-		this.logger.debug(
-			{ workspaceId, runId, active: active.size },
-			"Concurrency slot acquired",
-		);
+		active.set(runId, Date.now());
+		this.logger.debug({ workspaceId, runId, active: active.size }, "Concurrency slot acquired");
 		return true;
 	}
 
@@ -49,7 +58,10 @@ export class InMemoryConcurrencyLimiter implements ConcurrencyLimiter {
 	}
 
 	async activeCount(workspaceId: string): Promise<number> {
-		return this.slots.get(workspaceId)?.size ?? 0;
+		const active = this.slots.get(workspaceId);
+		if (!active) return 0;
+		this.evictStale(active);
+		return active.size;
 	}
 
 	async shutdown(): Promise<void> {
@@ -93,8 +105,13 @@ export class RedisConcurrencyLimiter implements ConcurrencyLimiter {
 		`;
 
 		const result = await this.redis.eval(
-			script, 1, key,
-			this.maxConcurrent, runId, now, this.ttlMs,
+			script,
+			1,
+			key,
+			this.maxConcurrent,
+			runId,
+			now,
+			this.ttlMs,
 		);
 
 		const acquired = result === 1;
@@ -104,20 +121,14 @@ export class RedisConcurrencyLimiter implements ConcurrencyLimiter {
 				"Concurrency limit reached (Redis)",
 			);
 		} else {
-			this.logger.debug(
-				{ workspaceId, runId },
-				"Concurrency slot acquired (Redis)",
-			);
+			this.logger.debug({ workspaceId, runId }, "Concurrency slot acquired (Redis)");
 		}
 		return acquired;
 	}
 
 	async release(workspaceId: string, runId: string): Promise<void> {
 		await this.redis.zrem(this.key(workspaceId), runId);
-		this.logger.debug(
-			{ workspaceId, runId },
-			"Concurrency slot released (Redis)",
-		);
+		this.logger.debug({ workspaceId, runId }, "Concurrency slot released (Redis)");
 	}
 
 	async activeCount(workspaceId: string): Promise<number> {
@@ -140,7 +151,10 @@ export async function createConcurrencyLimiter(
 	if (redisUrl) {
 		const { default: Redis } = await import("ioredis");
 		const redis = new Redis(redisUrl, { maxRetriesPerRequest: 3 });
-		logger.info({ redisUrl: redisUrl.replace(/\/\/.*@/, "//***@") }, "Using Redis concurrency limiter");
+		logger.info(
+			{ redisUrl: redisUrl.replace(/\/\/.*@/, "//***@") },
+			"Using Redis concurrency limiter",
+		);
 		return new RedisConcurrencyLimiter(redis, maxConcurrent, ttlMs, logger);
 	}
 

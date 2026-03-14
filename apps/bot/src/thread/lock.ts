@@ -1,11 +1,12 @@
 import type { PrismaClient } from "@openviktor/db";
+import { ThreadPhase } from "@openviktor/shared";
 import type { Logger } from "@openviktor/shared";
 
 export class ThreadLock {
 	constructor(
 		private prisma: PrismaClient,
 		private logger: Logger,
-		private lockTimeoutMs: number = 300_000,
+		private lockTimeoutMs = 300_000,
 	) {}
 
 	async acquire(threadId: string, runId: string): Promise<boolean> {
@@ -14,15 +15,12 @@ export class ThreadLock {
 		const result = await this.prisma.thread.updateMany({
 			where: {
 				id: threadId,
-				OR: [
-					{ lockedBy: null },
-					{ lockedAt: { lt: expiry } },
-				],
+				OR: [{ lockedBy: null }, { lockedAt: { lt: expiry } }],
 			},
 			data: {
 				lockedBy: runId,
 				lockedAt: new Date(),
-				phase: 3, // THREAD_LOCK
+				phase: ThreadPhase.THREAD_LOCK,
 			},
 		});
 

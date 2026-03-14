@@ -80,7 +80,7 @@ describe("InMemoryConcurrencyLimiter", () => {
 		expect(await limiter.activeCount("ws2")).toBe(0);
 	});
 
-	it("spawn 20 runs with limit 3, verify only 3 execute simultaneously", async () => {
+	it("saturates capacity immediately when spawning 20 runs with limit 3", async () => {
 		const limit = 3;
 		const testLimiter = new InMemoryConcurrencyLimiter(limit, logger as never);
 		const ws = "ws_stress";

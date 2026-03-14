@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@openviktor/db";
-import { type ThreadPhaseValue, ThreadPhase } from "@openviktor/shared";
+import { ThreadPhase, type ThreadPhaseValue } from "@openviktor/shared";
 
 const VALID_TRANSITIONS: ReadonlyMap<ThreadPhaseValue, readonly ThreadPhaseValue[]> = new Map([
 	[ThreadPhase.IDLE, [ThreadPhase.TRIGGER]],
@@ -30,17 +30,34 @@ export function phaseName(phase: ThreadPhaseValue): string {
 }
 
 export function isValidTransition(from: ThreadPhaseValue, to: ThreadPhaseValue): boolean {
-	const allowed = VALID_TRANSITIONS.get(from);
-	return allowed !== undefined && allowed.includes(to);
+	return VALID_TRANSITIONS.get(from)?.includes(to) ?? false;
 }
 
 export async function transitionPhase(
 	prisma: PrismaClient,
 	threadId: string,
-	phase: ThreadPhaseValue,
+	targetPhase: ThreadPhaseValue,
 ): Promise<void> {
-	await prisma.thread.update({
+	const thread = await prisma.thread.findUniqueOrThrow({
 		where: { id: threadId },
-		data: { phase },
+		select: { phase: true },
 	});
+
+	const currentPhase = thread.phase as ThreadPhaseValue;
+	if (!isValidTransition(currentPhase, targetPhase)) {
+		throw new Error(
+			`Invalid phase transition: ${phaseName(currentPhase)} → ${phaseName(targetPhase)}`,
+		);
+	}
+
+	const result = await prisma.thread.updateMany({
+		where: { id: threadId, phase: currentPhase },
+		data: { phase: targetPhase },
+	});
+
+	if (result.count === 0) {
+		throw new Error(
+			`Phase transition failed (concurrent modification): expected ${phaseName(currentPhase)}, thread may have changed`,
+		);
+	}
 }

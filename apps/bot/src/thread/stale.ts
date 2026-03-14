@@ -1,22 +1,30 @@
 import type { PrismaClient } from "@openviktor/db";
+import { ThreadPhase } from "@openviktor/shared";
 import type { Logger } from "@openviktor/shared";
 
 export class StaleThreadDetector {
 	private interval: ReturnType<typeof setInterval> | null = null;
+	private processing = false;
 
 	constructor(
 		private prisma: PrismaClient,
 		private logger: Logger,
-		private staleTimeoutMs: number = 86_400_000,
-		private checkIntervalMs: number = 900_000,
+		private staleTimeoutMs = 86_400_000,
+		private checkIntervalMs = 900_000,
 	) {}
 
 	start(): void {
 		if (this.interval) return;
 		this.interval = setInterval(() => {
-			this.detectAndCleanup().catch((err) => {
-				this.logger.error({ err }, "Stale thread detection failed");
-			});
+			if (this.processing) return;
+			this.processing = true;
+			this.detectAndCleanup()
+				.catch((err) => {
+					this.logger.error({ err }, "Stale thread detection failed");
+				})
+				.finally(() => {
+					this.processing = false;
+				});
 		}, this.checkIntervalMs);
 
 		this.logger.info(
@@ -41,7 +49,7 @@ export class StaleThreadDetector {
 				status: { in: ["ACTIVE", "WAITING"] },
 				updatedAt: { lt: cutoff },
 			},
-			data: { status: "STALE", phase: 0, lockedBy: null, lockedAt: null },
+			data: { status: "STALE", phase: ThreadPhase.IDLE, lockedBy: null, lockedAt: null },
 		});
 
 		if (staleThreads.count > 0) {
