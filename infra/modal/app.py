@@ -390,16 +390,39 @@ def tool_coworker_slack_history(args: dict, workspace_dir: str) -> dict:
     return {"result": {"messages": messages, "has_more": data.get("has_more", False)}}
 
 
+def _resolve_channel_id(args: dict) -> str:
+    channel = args.get("channel_id") or args.get("channel")
+    if not isinstance(channel, str) or not channel:
+        raise ValueError("Invalid or missing required argument: channel_id")
+    return channel
+
+
 def tool_coworker_send_slack_message(args: dict, workspace_dir: str) -> dict:
     try:
-        channel = _require_str(args, "channel")
+        channel = _resolve_channel_id(args)
         text = _require_str(args, "text")
     except ValueError as e:
         return {"error": str(e)}
 
+    reflection = args.get("reflection", "")
+    do_send = args.get("do_send")
+    if do_send is False:
+        return {"result": {"status": "suppressed", "reflection": reflection, "channel_id": channel}}
+
     params: dict[str, str] = {"channel": channel, "text": text}
     if args.get("thread_ts"):
         params["thread_ts"] = str(args["thread_ts"])
+    blocks = args.get("blocks")
+    if isinstance(blocks, list) and len(blocks) > 0:
+        params["blocks"] = json.dumps(blocks)
+
+    replace_ts = args.get("replace_message_ts")
+    if isinstance(replace_ts, str) and replace_ts:
+        params["ts"] = replace_ts
+        data = slack_api_call("chat.update", params)
+        if not data.get("ok"):
+            return {"error": data.get("error", "Slack API error")}
+        return {"result": {"status": "updated", "ts": replace_ts, "channel": channel, "reflection": reflection}}
 
     data = slack_api_call("chat.postMessage", params)
     if not data.get("ok"):
@@ -409,7 +432,7 @@ def tool_coworker_send_slack_message(args: dict, workspace_dir: str) -> dict:
     if not ts:
         return {"error": "Slack response missing message timestamp"}
 
-    return {"result": {"ts": ts, "channel": data.get("channel", channel)}}
+    return {"result": {"status": "sent", "ts": ts, "channel": data.get("channel", channel), "reflection": reflection}}
 
 
 def tool_coworker_slack_react(args: dict, workspace_dir: str) -> dict:
