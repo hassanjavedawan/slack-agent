@@ -733,7 +733,7 @@ function createCoworkerUpdateSlackMessageExecutor(slackToken: string): ToolExecu
 		try {
 			const channel = getRequiredString(args, "channel");
 			const timestamp = getRequiredString(args, "timestamp");
-			const text = getRequiredString(args, "text");
+			const text = markdownToMrkdwn(getRequiredString(args, "text"));
 			const blocks = args.blocks;
 
 			const params: Record<string, string> = { channel, ts: timestamp, text };
@@ -855,7 +855,7 @@ function createCreateThreadExecutor(slackToken: string): ToolExecutor {
 	return async (args) => {
 		try {
 			const channel = getRequiredString(args, "channel");
-			const text = getRequiredString(args, "text");
+			const text = markdownToMrkdwn(getRequiredString(args, "text"));
 
 			const apiResult = await slackApiCall(slackToken, "chat.postMessage", {
 				channel,
@@ -892,7 +892,7 @@ function createSendMessageToThreadExecutor(slackToken: string): ToolExecutor {
 		try {
 			const channel = getRequiredString(args, "channel");
 			const threadTs = getRequiredString(args, "thread_ts");
-			const text = getRequiredString(args, "text");
+			const text = markdownToMrkdwn(getRequiredString(args, "text"));
 
 			const apiResult = await slackApiCall(slackToken, "chat.postMessage", {
 				channel,
