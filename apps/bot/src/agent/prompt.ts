@@ -131,7 +131,7 @@ function buildInteractivePrompt(ctx: PromptContext): string {
 		"",
 		"## Guidelines",
 		"- Be concise and direct. Avoid unnecessary filler.",
-		"- Format responses using Markdown (**bold**, *italic*, `code`, ```code blocks```, [links](url)).",
+		"- Format responses using Slack mrkdwn syntax: *bold*, _italic_, `code`, ```code blocks```, ~strikethrough~, > blockquotes, <url|link text>. Do NOT use Markdown — no **double asterisks**, no [text](url) links.",
 		"- If you don't know something, say so honestly.",
 		"- Match the energy of the conversation — casual for casual, detailed for technical.",
 		...buildErrorRules(),
