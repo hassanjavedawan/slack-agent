@@ -118,9 +118,14 @@ async function postSlackMessage(
 	slackToken: string,
 	channel: string,
 	text: string,
+	threadTs?: string,
 ): Promise<{ ok: true; ts: string; channel: string } | { ok: false; error: string }> {
 	try {
-		const body = new URLSearchParams({ channel, text });
+		const params: Record<string, string> = { channel, text };
+		if (threadTs) {
+			params.thread_ts = threadTs;
+		}
+		const body = new URLSearchParams(params);
 		const response = await fetch(`${SLACK_API_BASE_URL}/chat.postMessage`, {
 			method: "POST",
 			headers: {
@@ -172,8 +177,8 @@ export function createCreateThreadExecutor(deps: ThreadOrchestrationDeps): ToolE
 				return { output: null, durationMs: 0, error: "Missing required parameters" };
 			}
 
-			const existing = await deps.prisma.thread.findFirst({
-				where: { workspaceId: ctx.workspaceId, path },
+			const existing = await deps.prisma.thread.findUnique({
+				where: { workspaceId_path: { workspaceId: ctx.workspaceId, path } },
 			});
 			if (existing) {
 				return {
@@ -259,7 +264,12 @@ export function createSendMessageToThreadExecutor(deps: ThreadOrchestrationDeps)
 				};
 			}
 
-			const slackResult = await postSlackMessage(deps.slackToken, thread.slackChannel, content);
+			const slackResult = await postSlackMessage(
+				deps.slackToken,
+				thread.slackChannel,
+				content,
+				thread.slackThreadTs,
+			);
 			if (!slackResult.ok) {
 				return { output: null, durationMs: 0, error: slackResult.error };
 			}

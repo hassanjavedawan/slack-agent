@@ -9,7 +9,12 @@ export function generateCronThreadPath(cronName: string): string {
 }
 
 export function generateSpawnPath(parentPath: string, childName: string): string {
-	return `${parentPath}/threads/${childName}`;
+	const normalizedParent = parentPath.replace(/\/+$/, "");
+	const sanitizedChild = childName.replace(/^\/+|\/+$/g, "");
+	if (!sanitizedChild) {
+		throw new Error("childName cannot be empty");
+	}
+	return `${normalizedParent}/threads/${sanitizedChild}`;
 }
 
 export function isChildPath(parentPath: string, childPath: string): boolean {

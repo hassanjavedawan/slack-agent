@@ -155,7 +155,6 @@ function buildInteractivePrompt(ctx: PromptContext): string {
 		lines.push("");
 		lines.push("## Your Thread Info");
 		lines.push(`- Path: ${ctx.threadPath}`);
-		lines.push(`- Triggered by: ${triggerLabel(ctx.triggerType).toLowerCase()}`);
 	}
 
 	if (ctx.activeThreads && ctx.activeThreads.length > 0) {

@@ -98,6 +98,6 @@ export function createThreadSpawner(config: ThreadSpawnerConfig) {
 			}
 		};
 
-		run();
+		void run();
 	};
 }

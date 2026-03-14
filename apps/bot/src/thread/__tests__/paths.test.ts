@@ -30,6 +30,20 @@ describe("generateSpawnPath", () => {
 		const path = generateSpawnPath("/heartbeat/threads/research", "sub_task");
 		expect(path).toBe("/heartbeat/threads/research/threads/sub_task");
 	});
+
+	it("normalizes trailing slashes on parent path", () => {
+		const path = generateSpawnPath("/heartbeat/", "research");
+		expect(path).toBe("/heartbeat/threads/research");
+	});
+
+	it("strips leading/trailing slashes from child name", () => {
+		const path = generateSpawnPath("/heartbeat", "/research/");
+		expect(path).toBe("/heartbeat/threads/research");
+	});
+
+	it("throws for empty child name", () => {
+		expect(() => generateSpawnPath("/heartbeat", "")).toThrow("childName cannot be empty");
+	});
 });
 
 describe("isChildPath", () => {

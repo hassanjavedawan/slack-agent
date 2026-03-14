@@ -23,6 +23,7 @@ function makeDeps(overrides: Partial<ThreadOrchestrationDeps> = {}): ThreadOrche
 				findUnique: vi.fn().mockResolvedValue(null),
 				findMany: vi.fn().mockResolvedValue([]),
 				create: vi.fn().mockResolvedValue({ id: "thread_1" }),
+				updateMany: vi.fn().mockResolvedValue({ count: 1 }),
 			},
 			agentRun: {
 				findFirst: vi.fn().mockResolvedValue(null),
@@ -42,7 +43,8 @@ function makeDeps(overrides: Partial<ThreadOrchestrationDeps> = {}): ThreadOrche
 
 // Mock global fetch for Slack API calls
 const mockFetch = vi.fn();
-vi.stubGlobal("fetch", mockFetch);
+const originalFetch = globalThis.fetch;
+globalThis.fetch = mockFetch as unknown as typeof fetch;
 
 function mockSlackSuccess(ts = "1710000000.000100", channel = "C12345") {
 	mockFetch.mockResolvedValueOnce({
@@ -106,7 +108,7 @@ describe("create_thread", () => {
 
 	it("returns error when path already exists", async () => {
 		const deps = makeDeps();
-		(deps.prisma.thread.findFirst as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+		(deps.prisma.thread.findUnique as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
 			id: "existing",
 		});
 		const executor = createCreateThreadExecutor(deps);
@@ -268,6 +270,20 @@ describe("wait_for_paths", () => {
 
 		const result = await executor({ paths: [] }, makeCtx());
 		expect(result.error).toContain("non-empty array");
+	});
+
+	it("times out when paths do not complete", async () => {
+		const deps = makeDeps();
+		(deps.prisma.thread.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+			{ path: "/thread/a", status: "ACTIVE" },
+		]);
+		const executor = createWaitForPathsExecutor(deps);
+
+		const result = await executor({ paths: ["/thread/a"], timeout_minutes: 0 }, makeCtx());
+
+		const output = result.output as Record<string, unknown>;
+		expect(output.timed_out).toBe(true);
+		expect(output.paths_waited_for).toEqual(["/thread/a"]);
 	});
 
 	it("treats STALE paths as completed", async () => {
