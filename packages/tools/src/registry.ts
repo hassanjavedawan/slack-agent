@@ -25,6 +25,10 @@ export class ToolRegistry {
 	private tools = new Map<string, RegisteredTool>();
 	private failures = new Map<string, number>();
 
+	private scopedKey(workspaceId: string, name: string): string {
+		return `ws:${workspaceId}:${name}`;
+	}
+
 	register(
 		name: string,
 		definition: LLMToolDefinition,
@@ -37,6 +41,30 @@ export class ToolRegistry {
 			localOnly: opts?.localOnly ?? false,
 			discoverable: opts?.discoverable ?? false,
 		});
+	}
+
+	registerScoped(
+		workspaceId: string,
+		name: string,
+		definition: LLMToolDefinition,
+		executor: ToolExecutor,
+		opts?: { localOnly?: boolean; discoverable?: boolean },
+	): void {
+		this.tools.set(this.scopedKey(workspaceId, name), {
+			definition,
+			executor,
+			localOnly: opts?.localOnly ?? false,
+			discoverable: opts?.discoverable ?? false,
+		});
+	}
+
+	resolve(name: string, workspaceId?: string): string | undefined {
+		if (workspaceId) {
+			const key = this.scopedKey(workspaceId, name);
+			if (this.tools.has(key)) return key;
+		}
+		if (this.tools.has(name)) return name;
+		return undefined;
 	}
 
 	has(name: string): boolean {
@@ -56,6 +84,12 @@ export class ToolRegistry {
 		return this.tools.delete(name);
 	}
 
+	unregisterScoped(workspaceId: string, name: string): boolean {
+		const key = this.scopedKey(workspaceId, name);
+		this.failures.delete(key);
+		return this.tools.delete(key);
+	}
+
 	getDefinitions(): LLMToolDefinition[] {
 		return Array.from(this.tools.values())
 			.filter((t) => !t.discoverable)
@@ -66,9 +100,18 @@ export class ToolRegistry {
 		return Array.from(this.tools.values()).map((t) => t.definition);
 	}
 
-	getDiscoverableDefinitions(prefix?: string): LLMToolDefinition[] {
+	getDiscoverableDefinitions(prefix?: string, workspaceId?: string): LLMToolDefinition[] {
 		return Array.from(this.tools.entries())
-			.filter(([name, t]) => t.discoverable && (!prefix || name.startsWith(prefix)))
+			.filter(([key, t]) => {
+				if (!t.discoverable) return false;
+				if (workspaceId) {
+					const wsPrefix = `ws:${workspaceId}:`;
+					if (!key.startsWith(wsPrefix)) return false;
+					const name = key.slice(wsPrefix.length);
+					return !prefix || name.startsWith(prefix);
+				}
+				return !prefix || key.startsWith(prefix);
+			})
 			.map(([, t]) => t.definition);
 	}
 

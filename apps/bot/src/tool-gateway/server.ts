@@ -67,7 +67,8 @@ export function createToolGateway(deps: GatewayDeps): {
 			return Response.json({ error: "Missing or invalid 'role' field" }, { status: 400 });
 		}
 
-		if (!registry.has(body.role)) {
+		const resolvedKey = registry.resolve(body.role, workspaceId);
+		if (!resolvedKey) {
 			return Response.json({ error: `Unknown tool: ${body.role}` }, { status: 404 });
 		}
 
@@ -76,9 +77,9 @@ export function createToolGateway(deps: GatewayDeps): {
 
 		logger.info({ tool: body.role, workspaceId }, "Tool call started");
 		const start = Date.now();
-		const useLocal = registry.isLocalOnly(body.role);
+		const useLocal = registry.isLocalOnly(resolvedKey);
 		const result = useLocal
-			? await registry.execute(body.role, body.arguments ?? {}, ctx)
+			? await registry.execute(resolvedKey, body.arguments ?? {}, ctx)
 			: await backend.execute(body.role, body.arguments ?? {}, ctx);
 		const durationMs = Date.now() - start;
 

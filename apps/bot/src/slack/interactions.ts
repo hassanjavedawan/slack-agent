@@ -21,41 +21,8 @@ export function registerInteractionHandlers(app: App, ctx: InteractionContext): 
 		const userId = body.user?.id ?? "unknown";
 
 		try {
-			const request = await ctx.prisma.permissionRequest.findUnique({
-				where: { id: requestId },
-			});
-
-			if (!request) {
-				ctx.logger.warn({ requestId }, "Permission request not found for approval");
-				return;
-			}
-
-			if (request.status !== "PENDING") {
-				await updateMessage(
-					client,
-					request.slackChannel,
-					request.slackMessageTs,
-					`Permission request already ${request.status.toLowerCase()}.`,
-				);
-				return;
-			}
-
-			if (new Date() >= request.expiresAt) {
-				await ctx.prisma.permissionRequest.update({
-					where: { id: requestId },
-					data: { status: "EXPIRED" },
-				});
-				await updateMessage(
-					client,
-					request.slackChannel,
-					request.slackMessageTs,
-					"Permission request expired.",
-				);
-				return;
-			}
-
-			await ctx.prisma.permissionRequest.update({
-				where: { id: requestId },
+			const result = await ctx.prisma.permissionRequest.updateMany({
+				where: { id: requestId, status: "PENDING", expiresAt: { gt: new Date() } },
 				data: {
 					status: "APPROVED",
 					approvedBy: userId,
@@ -63,11 +30,28 @@ export function registerInteractionHandlers(app: App, ctx: InteractionContext): 
 				},
 			});
 
+			const request = await ctx.prisma.permissionRequest.findUnique({
+				where: { id: requestId },
+			});
+
+			if (result.count === 0) {
+				const status = request?.status ?? "unknown";
+				await updateMessage(
+					client,
+					request?.slackChannel ?? null,
+					request?.slackMessageTs ?? null,
+					status === "PENDING"
+						? "Permission request expired."
+						: `Permission request already ${status.toLowerCase()}.`,
+				);
+				return;
+			}
+
 			await updateMessage(
 				client,
-				request.slackChannel,
-				request.slackMessageTs,
-				`Approved by <@${userId}>. Executing \`${request.toolName}\`...`,
+				request?.slackChannel ?? null,
+				request?.slackMessageTs ?? null,
+				`Approved by <@${userId}>. Executing \`${request?.toolName}\`...`,
 			);
 
 			ctx.logger.info({ requestId, userId }, "Permission approved");
@@ -89,27 +73,8 @@ export function registerInteractionHandlers(app: App, ctx: InteractionContext): 
 		const userId = body.user?.id ?? "unknown";
 
 		try {
-			const request = await ctx.prisma.permissionRequest.findUnique({
-				where: { id: requestId },
-			});
-
-			if (!request) {
-				ctx.logger.warn({ requestId }, "Permission request not found for rejection");
-				return;
-			}
-
-			if (request.status !== "PENDING") {
-				await updateMessage(
-					client,
-					request.slackChannel,
-					request.slackMessageTs,
-					`Permission request already ${request.status.toLowerCase()}.`,
-				);
-				return;
-			}
-
-			await ctx.prisma.permissionRequest.update({
-				where: { id: requestId },
+			const result = await ctx.prisma.permissionRequest.updateMany({
+				where: { id: requestId, status: "PENDING" },
 				data: {
 					status: "REJECTED",
 					approvedBy: userId,
@@ -117,10 +82,25 @@ export function registerInteractionHandlers(app: App, ctx: InteractionContext): 
 				},
 			});
 
+			const request = await ctx.prisma.permissionRequest.findUnique({
+				where: { id: requestId },
+			});
+
+			if (result.count === 0) {
+				const status = request?.status ?? "unknown";
+				await updateMessage(
+					client,
+					request?.slackChannel ?? null,
+					request?.slackMessageTs ?? null,
+					`Permission request already ${status.toLowerCase()}.`,
+				);
+				return;
+			}
+
 			await updateMessage(
 				client,
-				request.slackChannel,
-				request.slackMessageTs,
+				request?.slackChannel ?? null,
+				request?.slackMessageTs ?? null,
 				`Rejected by <@${userId}>.`,
 			);
 

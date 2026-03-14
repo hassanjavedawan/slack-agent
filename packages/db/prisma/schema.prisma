@@ -27,6 +27,7 @@ model Workspace {
   threads              Thread[]
   integrationAccounts  IntegrationAccount[]
   permissionRequests   PermissionRequest[]
+  toolDefinitions      ToolDefinition[]
 
   @@map("workspaces")
 }
@@ -146,7 +147,8 @@ enum ToolType {
 
 model ToolDefinition {
   id          String   @id @default(cuid())
-  name        String   @unique
+  workspaceId String   @map("workspace_id")
+  name        String
   description String
   type        ToolType
   schema      Json
@@ -156,6 +158,10 @@ model ToolDefinition {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId, type])
   @@map("tool_definitions")
 }
 

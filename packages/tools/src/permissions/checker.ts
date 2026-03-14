@@ -49,8 +49,8 @@ export function createSubmitPermissionRequestExecutor(prisma: PrismaClient): Too
 		}
 
 		if (new Date() >= request.expiresAt) {
-			await prisma.permissionRequest.update({
-				where: { id: requestId },
+			await prisma.permissionRequest.updateMany({
+				where: { id: requestId, status: "PENDING" },
 				data: { status: "EXPIRED" },
 			});
 			return {
@@ -61,14 +61,26 @@ export function createSubmitPermissionRequestExecutor(prisma: PrismaClient): Too
 
 		const approvalCode = args.approval_code as string | undefined;
 		if (approvalCode && approvalCode === request.approvalCode) {
-			await prisma.permissionRequest.update({
-				where: { id: requestId },
+			const result = await prisma.permissionRequest.updateMany({
+				where: { id: requestId, status: "PENDING" },
 				data: {
 					status: "APPROVED",
 					approvedBy: "manual",
 					resolvedAt: new Date(),
 				},
 			});
+			if (result.count === 0) {
+				const reloaded = await prisma.permissionRequest.findUnique({
+					where: { id: requestId },
+				});
+				return {
+					output: {
+						id: request.id,
+						status: reloaded?.status ?? "UNKNOWN",
+					},
+					durationMs: 0,
+				};
+			}
 			return {
 				output: { id: request.id, status: "APPROVED" },
 				durationMs: 0,

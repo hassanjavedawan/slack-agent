@@ -178,8 +178,8 @@ async function requestPermission(
 		}
 
 		if (updated.status === "EXPIRED" || new Date() >= updated.expiresAt) {
-			await prisma.permissionRequest.update({
-				where: { id: request.id },
+			await prisma.permissionRequest.updateMany({
+				where: { id: request.id, status: "PENDING" },
 				data: { status: "EXPIRED" },
 			});
 			return {
@@ -351,11 +351,16 @@ export async function registerIntegrationTools(
 			skipPermissions,
 		);
 
-		registry.register(toolName, definition, executor, { localOnly: true, discoverable: true });
+		registry.registerScoped(account.workspaceId, toolName, definition, executor, {
+			localOnly: true,
+			discoverable: true,
+		});
 		toolNames.push(toolName);
 
 		await prisma.toolDefinition.upsert({
-			where: { name: toolName },
+			where: {
+				workspaceId_name: { workspaceId: account.workspaceId, name: toolName },
+			},
 			update: {
 				description: definition.description,
 				schema: JSON.parse(JSON.stringify(inputSchema)),
@@ -370,6 +375,7 @@ export async function registerIntegrationTools(
 				},
 			},
 			create: {
+				workspaceId: account.workspaceId,
 				name: toolName,
 				description: definition.description,
 				type: "PIPEDREAM",
@@ -389,7 +395,8 @@ export async function registerIntegrationTools(
 
 	// Configure tool
 	const configureDef = makeConfigureDefinition(account.appSlug, account.appName);
-	registry.register(
+	registry.registerScoped(
+		account.workspaceId,
 		configureDef.name,
 		configureDef,
 		createPipedreamConfigureExecutor(client, account),
@@ -401,7 +408,8 @@ export async function registerIntegrationTools(
 	const methods = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
 	for (const method of methods) {
 		const proxyDef = makeProxyDefinition(account.appSlug, account.appName, method);
-		registry.register(
+		registry.registerScoped(
+			account.workspaceId,
 			proxyDef.name,
 			proxyDef,
 			createPipedreamProxyExecutor(client, prisma, account, method, skipPermissions),
@@ -446,6 +454,7 @@ export async function unregisterIntegrationTools(
 ): Promise<string[]> {
 	const toolDefs = await prisma.toolDefinition.findMany({
 		where: {
+			workspaceId,
 			type: "PIPEDREAM",
 			name: { startsWith: `mcp_pd_${appSlug}_` },
 		},
@@ -453,12 +462,19 @@ export async function unregisterIntegrationTools(
 
 	const removed: string[] = [];
 	for (const td of toolDefs) {
-		registry.unregister(td.name);
+		registry.unregisterScoped(workspaceId, td.name);
 		removed.push(td.name);
+	}
+
+	// Also unregister configure + proxy tools (not in toolDefinition table)
+	registry.unregisterScoped(workspaceId, `mcp_pd_${appSlug}_configure`);
+	for (const method of ["get", "post", "put", "patch", "delete"]) {
+		registry.unregisterScoped(workspaceId, `mcp_pd_${appSlug}_proxy_${method}`);
 	}
 
 	await prisma.toolDefinition.deleteMany({
 		where: {
+			workspaceId,
 			type: "PIPEDREAM",
 			name: { startsWith: `mcp_pd_${appSlug}_` },
 		},
@@ -474,12 +490,100 @@ export async function unregisterIntegrationTools(
 	return removed;
 }
 
+interface RestoreDeps {
+	registry: ToolRegistry;
+	client: PipedreamClient;
+	prisma: PrismaClient;
+	skipPermissions: boolean;
+}
+
+function restoreActionTool(
+	deps: RestoreDeps,
+	td: { workspaceId: string; name: string; description: string; config: unknown; schema: unknown },
+): string | null {
+	const config = td.config as Record<string, unknown>;
+	const appSlug = config.appSlug as string;
+	const actionId = config.actionId as string;
+	const actionKey = config.actionKey as string;
+	if (!appSlug || !actionId || !actionKey) return null;
+
+	const account: IntegrationAccountRow = {
+		id: "",
+		workspaceId: td.workspaceId,
+		appSlug,
+		appName: appSlug,
+		authProvisionId: (config.authProvisionId as string) ?? "",
+		externalUserId: (config.externalUserId as string) ?? "",
+	};
+
+	const definition: LLMToolDefinition = {
+		name: td.name,
+		description: td.description,
+		input_schema: td.schema as Record<string, unknown>,
+	};
+
+	const executor = createPipedreamActionExecutor(
+		deps.client,
+		deps.prisma,
+		account,
+		{ id: actionId, key: actionKey, appPropName: config.appPropName as string | undefined },
+		deps.skipPermissions,
+	);
+
+	deps.registry.registerScoped(td.workspaceId, td.name, definition, executor, {
+		localOnly: true,
+		discoverable: true,
+	});
+	return td.name;
+}
+
+function restoreUtilityTools(deps: RestoreDeps, account: IntegrationAccountRow): string[] {
+	const restored: string[] = [];
+
+	const configureDef = makeConfigureDefinition(account.appSlug, account.appName);
+	if (!deps.registry.resolve(configureDef.name, account.workspaceId)) {
+		deps.registry.registerScoped(
+			account.workspaceId,
+			configureDef.name,
+			configureDef,
+			createPipedreamConfigureExecutor(deps.client, account),
+			{ localOnly: true, discoverable: true },
+		);
+		restored.push(configureDef.name);
+	}
+
+	const methods = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
+	for (const method of methods) {
+		const proxyDef = makeProxyDefinition(account.appSlug, account.appName, method);
+		if (!deps.registry.resolve(proxyDef.name, account.workspaceId)) {
+			deps.registry.registerScoped(
+				account.workspaceId,
+				proxyDef.name,
+				proxyDef,
+				createPipedreamProxyExecutor(
+					deps.client,
+					deps.prisma,
+					account,
+					method,
+					deps.skipPermissions,
+				),
+				{ localOnly: true, discoverable: true },
+			);
+			restored.push(proxyDef.name);
+		}
+	}
+
+	return restored;
+}
+
 export async function restoreToolsFromDb(
 	registry: ToolRegistry,
 	client: PipedreamClient,
 	prisma: PrismaClient,
 	skipPermissions: boolean,
 ): Promise<string[]> {
+	const deps: RestoreDeps = { registry, client, prisma, skipPermissions };
+
 	const toolDefs = await prisma.toolDefinition.findMany({
 		where: { type: "PIPEDREAM", enabled: true },
 	});
@@ -487,58 +591,26 @@ export async function restoreToolsFromDb(
 	const restored: string[] = [];
 
 	for (const td of toolDefs) {
-		const config = td.config as Record<string, unknown>;
-		const appSlug = config.appSlug as string;
-		const actionId = config.actionId as string;
-		const actionKey = config.actionKey as string;
-		const appPropName = config.appPropName as string | undefined;
-		const authProvisionId = config.authProvisionId as string;
-		const externalUserId = config.externalUserId as string;
-
-		if (!appSlug || !actionId || !actionKey) continue;
-
-		const account: IntegrationAccountRow = {
-			id: "",
-			workspaceId: "",
-			appSlug,
-			appName: appSlug,
-			authProvisionId: authProvisionId ?? "",
-			externalUserId: externalUserId ?? "",
-		};
-
-		const definition: LLMToolDefinition = {
-			name: td.name,
-			description: td.description,
-			input_schema: td.schema as Record<string, unknown>,
-		};
-
-		const executor = createPipedreamActionExecutor(
-			client,
-			prisma,
-			account,
-			{ id: actionId, key: actionKey, appPropName },
-			skipPermissions,
-		);
-
-		registry.register(td.name, definition, executor, { localOnly: true, discoverable: true });
-		restored.push(td.name);
+		const name = restoreActionTool(deps, td);
+		if (name) restored.push(name);
 	}
 
-	// Restore configure + proxy tools per unique app
+	// Restore configure + proxy tools per unique (workspace, app) pair
 	const uniqueApps = new Map<string, IntegrationAccountRow>();
 	for (const td of toolDefs) {
 		const config = td.config as Record<string, unknown>;
 		const appSlug = config.appSlug as string;
-		if (!appSlug || uniqueApps.has(appSlug)) continue;
+		const compositeKey = `${td.workspaceId}:${appSlug}`;
+		if (!appSlug || uniqueApps.has(compositeKey)) continue;
 
 		const accounts = await prisma.integrationAccount.findMany({
-			where: { appSlug, status: "ACTIVE" },
+			where: { workspaceId: td.workspaceId, appSlug, status: "ACTIVE" },
 			take: 1,
 		});
 
 		if (accounts.length > 0) {
 			const acct = accounts[0];
-			uniqueApps.set(appSlug, {
+			uniqueApps.set(compositeKey, {
 				id: acct.id,
 				workspaceId: acct.workspaceId,
 				appSlug: acct.appSlug,
@@ -549,31 +621,8 @@ export async function restoreToolsFromDb(
 		}
 	}
 
-	for (const [appSlug, account] of uniqueApps) {
-		const configureDef = makeConfigureDefinition(appSlug, account.appName);
-		if (!registry.has(configureDef.name)) {
-			registry.register(
-				configureDef.name,
-				configureDef,
-				createPipedreamConfigureExecutor(client, account),
-				{ localOnly: true, discoverable: true },
-			);
-			restored.push(configureDef.name);
-		}
-
-		const methods = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
-		for (const method of methods) {
-			const proxyDef = makeProxyDefinition(appSlug, account.appName, method);
-			if (!registry.has(proxyDef.name)) {
-				registry.register(
-					proxyDef.name,
-					proxyDef,
-					createPipedreamProxyExecutor(client, prisma, account, method, skipPermissions),
-					{ localOnly: true, discoverable: true },
-				);
-				restored.push(proxyDef.name);
-			}
-		}
+	for (const [, account] of uniqueApps) {
+		restored.push(...restoreUtilityTools(deps, account));
 	}
 
 	return restored;
