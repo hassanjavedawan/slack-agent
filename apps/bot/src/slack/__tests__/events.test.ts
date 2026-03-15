@@ -120,7 +120,7 @@ describe("events - reactions", () => {
 		return handlers;
 	}
 
-	it("adds hourglass reaction at start and swaps to checkmark on completion", async () => {
+	it("adds hourglass reaction at start and removes it on completion", async () => {
 		const handlers = await importAndRegister();
 
 		await handlers.message({
@@ -141,12 +141,9 @@ describe("events - reactions", () => {
 			expect.objectContaining({ name: "hourglass_flowing_sand" }),
 		);
 
-		// Hourglass removed and checkmark added on completion
+		// Hourglass removed on completion (no checkmark — reactions are agent-controlled)
 		expect(slackClient.reactions.remove).toHaveBeenCalledWith(
 			expect.objectContaining({ name: "hourglass_flowing_sand" }),
-		);
-		expect(slackClient.reactions.add).toHaveBeenCalledWith(
-			expect.objectContaining({ name: "white_check_mark" }),
 		);
 	});
 
