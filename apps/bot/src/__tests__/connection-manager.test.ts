@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	ConnectionManager,
-	EventsApiConnection,
 	type EventHandler,
+	EventsApiConnection,
 	type InteractionHandler,
 } from "../slack/connection-manager.js";
 

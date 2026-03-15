@@ -1,11 +1,18 @@
 import { createHmac } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ConnectionManager, EventHandler, SlackConnection } from "../slack/connection-manager.js";
+import type {
+	ConnectionManager,
+	EventHandler,
+	SlackConnection,
+} from "../slack/connection-manager.js";
 import { createEventsApiHandler } from "../slack/events-api.js";
 
 const SIGNING_SECRET = "test-signing-secret";
 
-function signRequest(body: string, secret = SIGNING_SECRET): { timestamp: string; signature: string } {
+function signRequest(
+	body: string,
+	secret = SIGNING_SECRET,
+): { timestamp: string; signature: string } {
 	const timestamp = Math.floor(Date.now() / 1000).toString();
 	const sigBasestring = `v0:${timestamp}:${body}`;
 	const hmac = createHmac("sha256", secret).update(sigBasestring).digest("hex");
