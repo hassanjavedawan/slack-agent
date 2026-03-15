@@ -236,8 +236,27 @@ export function createCreateThreadExecutor(deps: ThreadOrchestrationDeps): ToolE
 	};
 }
 
+async function recordMessageInThread(
+	prisma: ThreadOrchestrationDeps["prisma"],
+	threadId: string,
+	content: string,
+	slackChannel: string,
+	slackThreadTs: string,
+): Promise<void> {
+	const latestRun = await prisma.agentRun.findFirst({
+		where: { threadId },
+		orderBy: { createdAt: "desc" },
+		select: { id: true },
+	});
+	if (latestRun) {
+		await prisma.message.create({
+			data: { agentRunId: latestRun.id, role: "user", content, slackChannel, slackThreadTs },
+		});
+	}
+}
+
 export function createSendMessageToThreadExecutor(deps: ThreadOrchestrationDeps): ToolExecutor {
-	return async (args: Record<string, unknown>, ctx: ToolExecutionContext) => {
+	return async (args: Record<string, unknown>, _ctx: ToolExecutionContext) => {
 		try {
 			const content = getRequiredString(args, "content");
 			const threadId = getRequiredString(args, "thread_id");
@@ -249,19 +268,10 @@ export function createSendMessageToThreadExecutor(deps: ThreadOrchestrationDeps)
 
 			const thread = await deps.prisma.thread.findUnique({
 				where: { id: threadId },
-				select: {
-					id: true,
-					workspaceId: true,
-					slackChannel: true,
-					slackThreadTs: true,
-				},
+				select: { id: true, workspaceId: true, slackChannel: true, slackThreadTs: true },
 			});
 			if (!thread) {
-				return {
-					output: null,
-					durationMs: 0,
-					error: `Thread not found: ${threadId}`,
-				};
+				return { output: null, durationMs: 0, error: `Thread not found: ${threadId}` };
 			}
 
 			const slackResult = await postSlackMessage(
@@ -274,22 +284,13 @@ export function createSendMessageToThreadExecutor(deps: ThreadOrchestrationDeps)
 				return { output: null, durationMs: 0, error: slackResult.error };
 			}
 
-			const latestRun = await deps.prisma.agentRun.findFirst({
-				where: { threadId: thread.id },
-				orderBy: { createdAt: "desc" },
-				select: { id: true },
-			});
-			if (latestRun) {
-				await deps.prisma.message.create({
-					data: {
-						agentRunId: latestRun.id,
-						role: "user",
-						content,
-						slackChannel: thread.slackChannel,
-						slackThreadTs: thread.slackThreadTs,
-					},
-				});
-			}
+			await recordMessageInThread(
+				deps.prisma,
+				thread.id,
+				content,
+				thread.slackChannel,
+				thread.slackThreadTs,
+			);
 
 			if (triggerReply) {
 				deps.spawnAgentRun({
@@ -301,10 +302,7 @@ export function createSendMessageToThreadExecutor(deps: ThreadOrchestrationDeps)
 				});
 			}
 
-			return {
-				output: { status: "sent", message_ts: slackResult.ts },
-				durationMs: 0,
-			};
+			return { output: { status: "sent", message_ts: slackResult.ts }, durationMs: 0 };
 		} catch (error) {
 			return {
 				output: null,

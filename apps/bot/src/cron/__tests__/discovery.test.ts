@@ -121,7 +121,7 @@ describe("seedDiscovery", () => {
 
 		expect(prisma.cronJob.create).toHaveBeenCalledWith({
 			data: expect.objectContaining({
-				conditionScript: "return await helpers.hasNewSlackMessages(ctx);",
+				type: "DISCOVERY",
 			}),
 		});
 	});

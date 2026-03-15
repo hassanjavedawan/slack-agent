@@ -497,19 +497,17 @@ interface SendMessageArgs {
 	blocks: unknown[];
 }
 
+function extractBlockText(block: unknown): string | null {
+	if (typeof block !== "object" || block === null) return null;
+	const b = block as Record<string, unknown>;
+	if (b.type !== "section" && b.type !== "header") return null;
+	if (typeof b.text !== "object" || b.text === null) return null;
+	const textObj = b.text as Record<string, unknown>;
+	return typeof textObj.text === "string" ? textObj.text : null;
+}
+
 function extractTextFromBlocks(blocks: unknown[]): string {
-	const texts: string[] = [];
-	for (const block of blocks) {
-		if (typeof block !== "object" || block === null) continue;
-		const b = block as Record<string, unknown>;
-		if (b.type === "section" && typeof b.text === "object" && b.text !== null) {
-			const textObj = b.text as Record<string, unknown>;
-			if (typeof textObj.text === "string") texts.push(textObj.text);
-		} else if (b.type === "header" && typeof b.text === "object" && b.text !== null) {
-			const textObj = b.text as Record<string, unknown>;
-			if (typeof textObj.text === "string") texts.push(textObj.text);
-		}
-	}
+	const texts = blocks.map(extractBlockText).filter((t): t is string => t !== null);
 	return texts.join("\n") || "New message";
 }
 
@@ -553,6 +551,49 @@ function parseSendMessageArgs(args: Record<string, unknown>): SendMessageArgs {
 	};
 }
 
+function logSentMessage(
+	result: { output: unknown; error?: string },
+	ctx: { workspaceId: string },
+	parsed: SendMessageArgs,
+): void {
+	if (!result.output || result.error) return;
+	const out = result.output as Record<string, unknown>;
+	const ts = typeof out.ts === "string" ? out.ts : "";
+	if (!ts) return;
+	appendSlackLog({
+		workspaceId: ctx.workspaceId,
+		channel: parsed.channelId,
+		ts,
+		threadTs: parsed.threadTs,
+		username: "OpenViktor",
+		text: parsed.text,
+		isBotMessage: true,
+	}).catch(() => {});
+}
+
+async function executeSendOrUpdate(
+	slackToken: string,
+	parsed: SendMessageArgs,
+): Promise<{ output: unknown; durationMs: number; error?: string }> {
+	const params = buildSendParams(parsed.channelId, parsed.text, parsed.threadTs, parsed.blocks);
+	if (parsed.replaceMessageTs) {
+		return execUpdateMessage(
+			slackToken,
+			params,
+			parsed.replaceMessageTs,
+			parsed.channelId,
+			parsed.reflection,
+		);
+	}
+	return execPostMessage(
+		slackToken,
+		params,
+		parsed.channelId,
+		parsed.reflection,
+		parsed.messageType,
+	);
+}
+
 function createCoworkerSendSlackMessageExecutor(slackToken: string): ToolExecutor {
 	return async (args, ctx) => {
 		try {
@@ -571,42 +612,8 @@ function createCoworkerSendSlackMessageExecutor(slackToken: string): ToolExecuto
 					durationMs: 0,
 				};
 			}
-			const params = buildSendParams(parsed.channelId, parsed.text, parsed.threadTs, parsed.blocks);
-			let result: { output: unknown; durationMs: number; error?: string };
-			if (parsed.replaceMessageTs) {
-				result = await execUpdateMessage(
-					slackToken,
-					params,
-					parsed.replaceMessageTs,
-					parsed.channelId,
-					parsed.reflection,
-				);
-			} else {
-				result = await execPostMessage(
-					slackToken,
-					params,
-					parsed.channelId,
-					parsed.reflection,
-					parsed.messageType,
-				);
-			}
-
-			if (result.output && !result.error) {
-				const out = result.output as Record<string, unknown>;
-				const ts = typeof out.ts === "string" ? out.ts : "";
-				if (ts) {
-					appendSlackLog({
-						workspaceId: ctx.workspaceId,
-						channel: parsed.channelId,
-						ts,
-						threadTs: parsed.threadTs,
-						username: "OpenViktor",
-						text: parsed.text,
-						isBotMessage: true,
-					}).catch(() => {});
-				}
-			}
-
+			const result = await executeSendOrUpdate(slackToken, parsed);
+			logSentMessage(result, ctx, parsed);
 			return result;
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
