@@ -136,7 +136,6 @@ export async function seedDiscovery(prisma: PrismaClient, workspaceId: string): 
 			type: "DISCOVERY",
 			costTier: 2,
 			enabled: true,
-			conditionScript: "return await helpers.hasNewSlackMessages(ctx);",
 			agentPrompt: buildDiscoveryPrompt([]),
 			nextRunAt,
 		},

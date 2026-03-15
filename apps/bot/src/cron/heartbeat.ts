@@ -84,7 +84,6 @@ export async function seedHeartbeat(prisma: PrismaClient, workspaceId: string): 
 			type: "HEARTBEAT",
 			costTier: 2,
 			enabled: true,
-			conditionScript: "return await helpers.hasNewSlackMessages(ctx);",
 			agentPrompt: buildHeartbeatPrompt([], DEFAULT_THRESHOLDS),
 			nextRunAt,
 		},

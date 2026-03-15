@@ -6,6 +6,7 @@ import {
 	chunkMessage,
 	markdownToMrkdwn,
 } from "@openviktor/shared";
+import { appendSlackLog } from "@openviktor/tools";
 import type { App } from "@slack/bolt";
 import type { AgentRunner } from "../agent/runner.js";
 import {
@@ -121,6 +122,15 @@ async function handleMessage(
 		botUserId,
 		msg.user as string,
 	);
+
+	appendSlackLog({
+		workspaceId: workspace.id,
+		channel: msg.channel,
+		ts: msg.ts,
+		threadTs: msg.thread_ts,
+		username: member.displayName ?? msg.user ?? "unknown",
+		text: msg.text ?? "",
+	}).catch((err) => ctx.logger.warn({ err }, "Failed to write Slack log"));
 
 	await addReaction(slackClient, msg.channel, msg.ts, "hourglass_flowing_sand", ctx.logger);
 
@@ -295,6 +305,15 @@ async function handleMention(
 		botUserId,
 		event.user,
 	);
+
+	appendSlackLog({
+		workspaceId: workspace.id,
+		channel: event.channel,
+		ts: event.ts,
+		threadTs: event.thread_ts,
+		username: member.displayName ?? event.user,
+		text: event.text,
+	}).catch((err) => ctx.logger.warn({ err }, "Failed to write Slack log"));
 
 	await addReaction(slackClient, event.channel, event.ts, "hourglass_flowing_sand", ctx.logger);
 

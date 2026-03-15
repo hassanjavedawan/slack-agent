@@ -40,6 +40,8 @@ export {
 	submitPermissionRequestDefinition,
 	createSubmitPermissionRequestExecutor,
 } from "./permissions/index.js";
+export { appendSlackLog } from "./slack-log.js";
+export type { SlackLogEntry } from "./slack-log.js";
 export {
 	type PermissionRequiredOutput,
 	isPermissionRequired,

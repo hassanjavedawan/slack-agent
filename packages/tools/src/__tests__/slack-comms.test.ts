@@ -31,10 +31,10 @@ function mockSlackResponse(data: Record<string, unknown>) {
 
 describe("coworker_send_slack_message", () => {
 	describe("definition", () => {
-		it("requires channel_id, text, reflection, and do_send", () => {
+		it("requires channel_id, blocks, reflection, and do_send", () => {
 			const required = coworkerSendSlackMessageDefinition.input_schema.required;
 			expect(required).toContain("channel_id");
-			expect(required).toContain("text");
+			expect(required).toContain("blocks");
 			expect(required).toContain("reflection");
 			expect(required).toContain("do_send");
 		});
@@ -55,7 +55,7 @@ describe("coworker_send_slack_message", () => {
 			const result = await executors.coworker_send_slack_message(
 				{
 					channel_id: "C123",
-					text: "Hello",
+					blocks: [{ type: "section", text: { type: "mrkdwn", text: "Hello" } }],
 					reflection: "This message is not needed",
 					do_send: false,
 				},
@@ -74,7 +74,7 @@ describe("coworker_send_slack_message", () => {
 			const result = await executors.coworker_send_slack_message(
 				{
 					channel_id: "C123",
-					text: "Hello",
+					blocks: [{ type: "section", text: { type: "mrkdwn", text: "Hello" } }],
 					reflection: "Message is helpful and accurate",
 					do_send: true,
 				},
@@ -93,7 +93,7 @@ describe("coworker_send_slack_message", () => {
 			const result = await executors.coworker_send_slack_message(
 				{
 					channel_id: "C123",
-					text: "test",
+					blocks: [{ type: "section", text: { type: "mrkdwn", text: "test" } }],
 					reflection: "Looks good",
 					do_send: true,
 				},
@@ -112,7 +112,6 @@ describe("coworker_send_slack_message", () => {
 			await executors.coworker_send_slack_message(
 				{
 					channel_id: "C123",
-					text: "fallback",
 					blocks,
 					reflection: "Rich formatting used appropriately",
 					do_send: true,
@@ -133,7 +132,7 @@ describe("coworker_send_slack_message", () => {
 			const result = await executors.coworker_send_slack_message(
 				{
 					channel_id: "C123",
-					text: "Updated text",
+					blocks: [{ type: "section", text: { type: "mrkdwn", text: "Updated text" } }],
 					reflection: "Updating existing message",
 					do_send: true,
 					replace_message_ts: "original.ts",
@@ -156,7 +155,7 @@ describe("coworker_send_slack_message", () => {
 			await executors.coworker_send_slack_message(
 				{
 					channel_id: "C123",
-					text: "Permission needed",
+					blocks: [{ type: "section", text: { type: "mrkdwn", text: "Permission needed" } }],
 					reflection: "This requires approval",
 					do_send: true,
 					message_type: "permission_request",
@@ -182,7 +181,7 @@ describe("coworker_send_slack_message", () => {
 			await executors.coworker_send_slack_message(
 				{
 					channel_id: "C123",
-					text: "Need permission",
+					blocks: [{ type: "section", text: { type: "mrkdwn", text: "Need permission" } }],
 					reflection: "Requesting permission",
 					do_send: true,
 					message_type: "permission_request",
@@ -206,7 +205,7 @@ describe("coworker_send_slack_message", () => {
 			const result = await executors.coworker_send_slack_message(
 				{
 					channel_id: "C123",
-					text: "test",
+					blocks: [{ type: "section", text: { type: "mrkdwn", text: "test" } }],
 					reflection: "test",
 					do_send: "yes",
 				},
@@ -220,12 +219,26 @@ describe("coworker_send_slack_message", () => {
 			const result = await executors.coworker_send_slack_message(
 				{
 					channel_id: "C123",
-					text: "test",
+					blocks: [{ type: "section", text: { type: "mrkdwn", text: "test" } }],
 					do_send: true,
 				},
 				ctx,
 			);
 			expect(result.error).toContain("reflection");
+		});
+
+		it("errors when blocks is empty or missing", async () => {
+			const executors = createSlackToolExecutors(FAKE_TOKEN);
+			const result = await executors.coworker_send_slack_message(
+				{
+					channel_id: "C123",
+					blocks: [],
+					reflection: "test",
+					do_send: true,
+				},
+				ctx,
+			);
+			expect(result.error).toContain("blocks");
 		});
 
 		it("accepts channel as alias for channel_id (backwards compat)", async () => {
@@ -234,7 +247,7 @@ describe("coworker_send_slack_message", () => {
 			const result = await executors.coworker_send_slack_message(
 				{
 					channel: "C123",
-					text: "test",
+					blocks: [{ type: "section", text: { type: "mrkdwn", text: "test" } }],
 					reflection: "test",
 					do_send: true,
 				},
