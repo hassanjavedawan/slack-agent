@@ -3,7 +3,7 @@ import { lstat, mkdir, readlink, realpath, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
 const WORKSPACE_ROOT = "/data/workspaces";
-const SUBDIRS = ["skills", "crons", "logs", "temp", "repos"] as const;
+const SUBDIRS = ["skills", "crons", "logs", "temp", "repos", "slack"] as const;
 
 export function getWorkspaceDir(workspaceId: string): string {
 	return join(WORKSPACE_ROOT, workspaceId);

@@ -19,10 +19,12 @@ import {
 	listAvailableIntegrationsDefinition,
 	listWorkspaceConnectionsDefinition,
 	registerDbTools,
+	registerThreadOrchestrationTools,
 	restoreToolsFromDb,
 	submitPermissionRequestDefinition,
 	syncWorkspaceConnectionsDefinition,
 } from "@openviktor/tools";
+import type { SpawnAgentRunParams } from "@openviktor/tools";
 import type { RegistryConfig, ToolBackend } from "@openviktor/tools";
 import { LLMGateway } from "./agent/gateway.js";
 import { AnthropicProvider } from "./agent/providers/anthropic.js";
@@ -155,6 +157,27 @@ async function main(): Promise<void> {
 			maxConcurrentRuns: config.MAX_CONCURRENT_RUNS,
 		},
 	);
+
+	// Thread orchestration tools (create_thread, send_message_to_thread, wait_for_paths, etc.)
+	registerThreadOrchestrationTools(registry, {
+		prisma,
+		slackToken: config.SLACK_BOT_TOKEN,
+		spawnAgentRun: (params: SpawnAgentRunParams) => {
+			void runner.run({
+				workspaceId: params.workspaceId,
+				memberId: null,
+				triggerType: "SPAWN",
+				slackChannel: params.slackChannel,
+				slackThreadTs: params.slackThreadTs,
+				userMessage: params.initialPrompt,
+				promptContext: {
+					workspaceName: "",
+					channel: params.slackChannel,
+					triggerType: "SPAWN",
+				},
+			});
+		},
+	});
 
 	const scheduler = new CronScheduler(prisma, runner, createLogger("cron-scheduler"), {
 		checkIntervalMs: config.CRON_CHECK_INTERVAL_MS,

@@ -199,50 +199,22 @@ describe("slack message mrkdwn conversion", () => {
 		};
 	}
 
-	it("coworker_send_slack_message converts markdown to mrkdwn", async () => {
+	it("coworker_send_slack_message extracts fallback text from blocks", async () => {
 		const mock = mockSlackFetch();
 		try {
 			await slackTools.coworker_send_slack_message(
 				{
 					channel: "C123",
-					text: "This is **bold** and *italic*",
+					blocks: [
+						{ type: "section", text: { type: "mrkdwn", text: "Hello world" } },
+					],
 					do_send: true,
 					reflection: "test",
 				},
 				ctx,
 			);
 			const body = new URLSearchParams(mock.calls[0].body);
-			expect(body.get("text")).toBe("This is *bold* and _italic_");
-		} finally {
-			mock.restore();
-		}
-	});
-
-	it("send_message_to_thread converts markdown to mrkdwn", async () => {
-		const mock = mockSlackFetch();
-		try {
-			await slackTools.send_message_to_thread(
-				{ channel: "C123", thread_ts: "1234.5678", text: "[docs](https://example.com)" },
-				ctx,
-			);
-			const body = new URLSearchParams(mock.calls[0].body);
-			expect(body.get("text")).toBe("<https://example.com|docs>");
-		} finally {
-			mock.restore();
-		}
-	});
-
-	it("create_thread converts markdown to mrkdwn", async () => {
-		const mock = mockSlackFetch();
-		try {
-			await slackTools.create_thread(
-				{ channel: "C123", text: "# Heading\n\nSome **bold** text" },
-				ctx,
-			);
-			const body = new URLSearchParams(mock.calls[0].body);
-			expect(body.get("text")).toContain("*Heading*");
-			expect(body.get("text")).toContain("*bold*");
-			expect(body.get("text")).not.toContain("**bold**");
+			expect(body.get("text")).toBe("Hello world");
 		} finally {
 			mock.restore();
 		}
@@ -254,7 +226,6 @@ describe("slack message mrkdwn conversion", () => {
 			await slackTools.coworker_send_slack_message(
 				{
 					channel: "C123",
-					text: "fallback",
 					do_send: true,
 					reflection: "test",
 					blocks: [

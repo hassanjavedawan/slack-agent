@@ -3,6 +3,7 @@ import path from "node:path";
 import type { LLMToolDefinition } from "@openviktor/shared";
 import { markdownToMrkdwn } from "@openviktor/shared";
 import type { ToolExecutor } from "../registry.js";
+import { appendSlackLog } from "../slack-log.js";
 import { resolveSafePath } from "../workspace.js";
 
 type SlackToolName =
@@ -12,9 +13,7 @@ type SlackToolName =
 	| "coworker_delete_slack_message"
 	| "coworker_update_slack_message"
 	| "coworker_upload_to_slack"
-	| "coworker_download_from_slack"
-	| "create_thread"
-	| "send_message_to_thread";
+	| "coworker_download_from_slack";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -48,16 +47,15 @@ export const coworkerSlackHistoryDefinition: LLMToolDefinition = {
 export const coworkerSendSlackMessageDefinition: LLMToolDefinition = {
 	name: "coworker_send_slack_message",
 	description:
-		"Send a Slack message to a channel or thread. Supports Block Kit for rich formatting. Requires a reflection before sending — set do_send to false to suppress the message after reflection.",
+		"Send a Slack message using Block Kit blocks. Requires a reflection before sending — set do_send to false to suppress the message after reflection.",
 	input_schema: {
 		type: "object",
 		properties: {
 			channel_id: { type: "string", description: "Slack channel or user ID" },
-			text: { type: "string", description: "Message text (also serves as fallback for blocks)" },
 			blocks: {
 				type: "array",
 				description:
-					"Block Kit blocks for rich formatting (sections, headers, dividers, images). When provided, text becomes the notification fallback.",
+					'Block Kit blocks array. Use section blocks for text: [{"type": "section", "text": {"type": "mrkdwn", "text": "your message"}}]. Also supports header, divider, context, image, and actions blocks.',
 				items: { type: "object" },
 			},
 			reflection: {
@@ -68,6 +66,11 @@ export const coworkerSendSlackMessageDefinition: LLMToolDefinition = {
 			do_send: {
 				type: "boolean",
 				description: "Set to true to send the message, false to suppress it after reflection.",
+			},
+			text: {
+				type: "string",
+				description:
+					"Optional notification fallback text (shown in push notifications). Auto-generated from blocks if omitted.",
 			},
 			thread_ts: {
 				type: "string",
@@ -93,7 +96,7 @@ export const coworkerSendSlackMessageDefinition: LLMToolDefinition = {
 				description: "Additional context shown when a permission request is approved.",
 			},
 		},
-		required: ["channel_id", "text", "reflection", "do_send"],
+		required: ["channel_id", "blocks", "reflection", "do_send"],
 	},
 };
 
@@ -494,9 +497,24 @@ interface SendMessageArgs {
 	blocks: unknown[];
 }
 
+function extractTextFromBlocks(blocks: unknown[]): string {
+	const texts: string[] = [];
+	for (const block of blocks) {
+		if (typeof block !== "object" || block === null) continue;
+		const b = block as Record<string, unknown>;
+		if (b.type === "section" && typeof b.text === "object" && b.text !== null) {
+			const textObj = b.text as Record<string, unknown>;
+			if (typeof textObj.text === "string") texts.push(textObj.text);
+		} else if (b.type === "header" && typeof b.text === "object" && b.text !== null) {
+			const textObj = b.text as Record<string, unknown>;
+			if (typeof textObj.text === "string") texts.push(textObj.text);
+		}
+	}
+	return texts.join("\n") || "New message";
+}
+
 function parseSendMessageArgs(args: Record<string, unknown>): SendMessageArgs {
 	const channelId = resolveChannelId(args);
-	const text = markdownToMrkdwn(getRequiredString(args, "text"));
 	const messageType = getOptionalString(args, "message_type") ?? "regular";
 	const permissionRequestDraftIds = Array.isArray(args.permission_request_draft_ids)
 		? args.permission_request_draft_ids.filter((id): id is string => typeof id === "string")
@@ -505,6 +523,16 @@ function parseSendMessageArgs(args: Record<string, unknown>): SendMessageArgs {
 	const inputBlocks = Array.isArray(args.blocks)
 		? (convertBlocksMrkdwn(args.blocks) as unknown[])
 		: [];
+
+	if (inputBlocks.length === 0) {
+		throw new Error(
+			"Missing required argument: blocks (must be a non-empty array of Block Kit blocks)",
+		);
+	}
+
+	const explicitText = getOptionalString(args, "text");
+	const text = explicitText ? markdownToMrkdwn(explicitText) : extractTextFromBlocks(inputBlocks);
+
 	const blocks =
 		messageType === "permission_request"
 			? buildPermissionRequestBlocks(
@@ -526,7 +554,7 @@ function parseSendMessageArgs(args: Record<string, unknown>): SendMessageArgs {
 }
 
 function createCoworkerSendSlackMessageExecutor(slackToken: string): ToolExecutor {
-	return async (args) => {
+	return async (args, ctx) => {
 		try {
 			const doSend = args.do_send;
 			if (typeof doSend !== "boolean") {
@@ -544,22 +572,42 @@ function createCoworkerSendSlackMessageExecutor(slackToken: string): ToolExecuto
 				};
 			}
 			const params = buildSendParams(parsed.channelId, parsed.text, parsed.threadTs, parsed.blocks);
+			let result: { output: unknown; durationMs: number; error?: string };
 			if (parsed.replaceMessageTs) {
-				return execUpdateMessage(
+				result = await execUpdateMessage(
 					slackToken,
 					params,
 					parsed.replaceMessageTs,
 					parsed.channelId,
 					parsed.reflection,
 				);
+			} else {
+				result = await execPostMessage(
+					slackToken,
+					params,
+					parsed.channelId,
+					parsed.reflection,
+					parsed.messageType,
+				);
 			}
-			return execPostMessage(
-				slackToken,
-				params,
-				parsed.channelId,
-				parsed.reflection,
-				parsed.messageType,
-			);
+
+			if (result.output && !result.error) {
+				const out = result.output as Record<string, unknown>;
+				const ts = typeof out.ts === "string" ? out.ts : "";
+				if (ts) {
+					appendSlackLog({
+						workspaceId: ctx.workspaceId,
+						channel: parsed.channelId,
+						ts,
+						threadTs: parsed.threadTs,
+						username: "OpenViktor",
+						text: parsed.text,
+						isBotMessage: true,
+					}).catch(() => {});
+				}
+			}
+
+			return result;
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
 			return { output: null, durationMs: 0, error: message };
@@ -747,80 +795,6 @@ function createCoworkerDownloadFromSlackExecutor(slackToken: string): ToolExecut
 	};
 }
 
-function createCreateThreadExecutor(slackToken: string): ToolExecutor {
-	return async (args) => {
-		try {
-			const channel = getRequiredString(args, "channel");
-			const text = markdownToMrkdwn(getRequiredString(args, "text"));
-
-			const apiResult = await slackApiCall(slackToken, "chat.postMessage", {
-				channel,
-				text,
-			});
-			if (!apiResult.ok) {
-				return { output: null, durationMs: 0, error: apiResult.error };
-			}
-
-			const ts = typeof apiResult.data.ts === "string" ? apiResult.data.ts : "";
-			const responseChannel =
-				typeof apiResult.data.channel === "string" ? apiResult.data.channel : channel;
-			if (!ts) {
-				return { output: null, durationMs: 0, error: "Slack response missing message timestamp" };
-			}
-
-			return {
-				output: {
-					ts,
-					channel: responseChannel,
-					thread_ts: ts,
-				},
-				durationMs: 0,
-			};
-		} catch (error) {
-			const message = error instanceof Error ? error.message : String(error);
-			return { output: null, durationMs: 0, error: message };
-		}
-	};
-}
-
-function createSendMessageToThreadExecutor(slackToken: string): ToolExecutor {
-	return async (args) => {
-		try {
-			const channel = getRequiredString(args, "channel");
-			const threadTs = getRequiredString(args, "thread_ts");
-			const text = markdownToMrkdwn(getRequiredString(args, "text"));
-
-			const apiResult = await slackApiCall(slackToken, "chat.postMessage", {
-				channel,
-				thread_ts: threadTs,
-				text,
-			});
-			if (!apiResult.ok) {
-				return { output: null, durationMs: 0, error: apiResult.error };
-			}
-
-			const ts = typeof apiResult.data.ts === "string" ? apiResult.data.ts : "";
-			const responseChannel =
-				typeof apiResult.data.channel === "string" ? apiResult.data.channel : channel;
-			if (!ts) {
-				return { output: null, durationMs: 0, error: "Slack response missing message timestamp" };
-			}
-
-			return {
-				output: {
-					ts,
-					channel: responseChannel,
-					thread_ts: threadTs,
-				},
-				durationMs: 0,
-			};
-		} catch (error) {
-			const message = error instanceof Error ? error.message : String(error);
-			return { output: null, durationMs: 0, error: message };
-		}
-	};
-}
-
 export function createSlackToolExecutors(slackToken: string): {
 	[key in SlackToolName]: ToolExecutor;
 } {
@@ -832,7 +806,5 @@ export function createSlackToolExecutors(slackToken: string): {
 		coworker_update_slack_message: createCoworkerUpdateSlackMessageExecutor(slackToken),
 		coworker_upload_to_slack: createCoworkerUploadToSlackExecutor(slackToken),
 		coworker_download_from_slack: createCoworkerDownloadFromSlackExecutor(slackToken),
-		create_thread: createCreateThreadExecutor(slackToken),
-		send_message_to_thread: createSendMessageToThreadExecutor(slackToken),
 	};
 }
