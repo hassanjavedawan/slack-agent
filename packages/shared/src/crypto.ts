@@ -5,11 +5,10 @@ const IV_LENGTH = 12;
 const AUTH_TAG_LENGTH = 16;
 
 function getKeyBuffer(key: string): Buffer {
-	const buf = Buffer.from(key, "hex");
-	if (buf.length !== 32) {
+	if (!/^[0-9a-fA-F]{64}$/.test(key)) {
 		throw new Error("ENCRYPTION_KEY must be a 64-character hex string (32 bytes)");
 	}
-	return buf;
+	return Buffer.from(key, "hex");
 }
 
 export function encrypt(plaintext: string, key: string): string {

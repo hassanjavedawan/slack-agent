@@ -1,12 +1,13 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { Logger } from "@openviktor/shared";
 import type { WebClient } from "@slack/web-api";
-import type { ConnectionManager, EventHandler, SlackEvent } from "./connection-manager.js";
+import type { ConnectionManager, EventHandler, InteractionHandler, SlackEvent } from "./connection-manager.js";
 
 export interface EventsApiConfig {
 	signingSecret: string;
 	connectionManager: ConnectionManager;
 	onEvent: EventHandler;
+	onInteraction?: InteractionHandler;
 	logger: Logger;
 }
 
@@ -30,7 +31,7 @@ function verifySlackSignature(
 }
 
 export function createEventsApiHandler(config: EventsApiConfig) {
-	const { signingSecret, connectionManager, onEvent, logger } = config;
+	const { signingSecret, connectionManager, onEvent, onInteraction, logger } = config;
 
 	async function handleEventsRequest(req: Request): Promise<Response> {
 		const body = await req.text();
@@ -42,7 +43,12 @@ export function createEventsApiHandler(config: EventsApiConfig) {
 			return new Response("Invalid signature", { status: 401 });
 		}
 
-		const payload = JSON.parse(body);
+		let payload: Record<string, unknown>;
+		try {
+			payload = JSON.parse(body);
+		} catch {
+			return new Response("Invalid JSON", { status: 400 });
+		}
 
 		// URL verification challenge
 		if (payload.type === "url_verification") {
@@ -53,7 +59,7 @@ export function createEventsApiHandler(config: EventsApiConfig) {
 			return new Response("OK", { status: 200 });
 		}
 
-		const event = payload.event;
+		const event = payload.event as Record<string, unknown>;
 		const teamId = payload.team_id as string;
 
 		const connection = connectionManager.getConnectionByTeamId(teamId);
@@ -67,7 +73,7 @@ export function createEventsApiHandler(config: EventsApiConfig) {
 		if (slackEvent) {
 			const say = createSayFunction(connection.getClient(), slackEvent.channel);
 			void onEvent(slackEvent, connection, say).catch((err) => {
-				logger.error({ err, teamId, eventType: event.type }, "Error processing event");
+				logger.error({ err, teamId, eventType: event.type as string }, "Error processing event");
 			});
 		}
 
@@ -90,8 +96,13 @@ export function createEventsApiHandler(config: EventsApiConfig) {
 			return new Response("Missing payload", { status: 400 });
 		}
 
-		const payload = JSON.parse(payloadStr);
-		const teamId = payload.team?.id ?? payload.user?.team_id;
+		let payload: Record<string, unknown>;
+		try {
+			payload = JSON.parse(payloadStr);
+		} catch {
+			return new Response("Invalid JSON", { status: 400 });
+		}
+		const teamId = ((payload.team as Record<string, unknown>)?.id ?? (payload.user as Record<string, unknown>)?.team_id) as string | undefined;
 
 		if (!teamId) {
 			logger.warn("No team_id in interaction payload");
@@ -105,6 +116,15 @@ export function createEventsApiHandler(config: EventsApiConfig) {
 		}
 
 		// Acknowledge immediately — interactions have a 3s deadline
+		if (onInteraction) {
+			void onInteraction(
+				{ type: "block_actions", teamId, payload },
+				connection,
+			).catch((err) => {
+				logger.error({ err, teamId }, "Error processing interaction");
+			});
+		}
+
 		return new Response("OK", { status: 200 });
 	}
 

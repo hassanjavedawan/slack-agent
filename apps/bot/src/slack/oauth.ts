@@ -1,4 +1,4 @@
-import { createHmac } from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
 import type { PrismaClient } from "@openviktor/db";
 import type { EnvConfig, Logger } from "@openviktor/shared";
 import { encrypt } from "@openviktor/shared";
@@ -32,20 +32,20 @@ export interface OAuthHandlerConfig {
 
 function generateState(secret: string): string {
 	const timestamp = Date.now().toString();
-	const hmac = createHmac("sha256", secret).update(timestamp).digest("hex");
-	return `${timestamp}.${hmac}`;
+	const nonce = randomBytes(16).toString("hex");
+	const hmac = createHmac("sha256", secret).update(`${timestamp}.${nonce}`).digest("hex");
+	return `${timestamp}.${nonce}.${hmac}`;
 }
 
 function verifyState(state: string, secret: string): boolean {
 	const parts = state.split(".");
-	if (parts.length !== 2) return false;
-	const [timestamp, hmac] = parts;
+	if (parts.length !== 3) return false;
+	const [timestamp, nonce, hmac] = parts;
 
-	// Reject states older than 10 minutes
 	const age = Date.now() - Number.parseInt(timestamp, 10);
 	if (age > 600_000 || age < 0) return false;
 
-	const expected = createHmac("sha256", secret).update(timestamp).digest("hex");
+	const expected = createHmac("sha256", secret).update(`${timestamp}.${nonce}`).digest("hex");
 	return hmac === expected;
 }
 
@@ -134,7 +134,7 @@ export function createOAuthHandler(deps: OAuthHandlerConfig) {
 				where: { slackTeamId: teamId },
 				update: {
 					slackTeamName: teamName,
-					slackBotToken: accessToken,
+					slackBotToken: encryptedAccessToken,
 					slackBotUserId: botUserId,
 					oauthAccessToken: encryptedAccessToken,
 					oauthRefreshToken: encryptedRefreshToken,
@@ -144,7 +144,7 @@ export function createOAuthHandler(deps: OAuthHandlerConfig) {
 				create: {
 					slackTeamId: teamId,
 					slackTeamName: teamName,
-					slackBotToken: accessToken,
+					slackBotToken: encryptedAccessToken,
 					slackBotUserId: botUserId,
 					oauthAccessToken: encryptedAccessToken,
 					oauthRefreshToken: encryptedRefreshToken,

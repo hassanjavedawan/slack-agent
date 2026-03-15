@@ -563,9 +563,52 @@ async function main(): Promise<void> {
 		}
 	};
 
-	const onInteraction: InteractionHandler = async (_interaction, _connection) => {
-		// Interactions (permission approve/reject) handled via Bolt in self-hosted
-		// or via Events API in managed mode. Core logic stays in interactions.ts.
+	const onInteraction: InteractionHandler = async (interaction, connection) => {
+		if (interaction.type !== "block_actions") return;
+
+		const body = interaction.payload as Record<string, unknown>;
+		const actions = (body.actions ?? []) as Array<{ action_id?: string; value?: string }>;
+		const userId = ((body.user as Record<string, unknown>)?.id as string) ?? "unknown";
+		const client = connection.getClient();
+
+		for (const action of actions) {
+			const requestId = action.value;
+			if (!requestId) continue;
+
+			if (action.action_id === "permission_approve") {
+				const result = await prisma.permissionRequest.updateMany({
+					where: { id: requestId, status: "PENDING", expiresAt: { gt: new Date() } },
+					data: { status: "APPROVED", approvedBy: userId, resolvedAt: new Date() },
+				});
+				const request = await prisma.permissionRequest.findUnique({ where: { id: requestId } });
+				if (request?.slackChannel && request.slackMessageTs) {
+					const text = result.count > 0
+						? `Approved by <@${userId}>. Executing \`${request.toolName}\`...`
+						: `Permission request already ${(request.status ?? "unknown").toLowerCase()}.`;
+					try {
+						await client.chat.update({ channel: request.slackChannel, ts: request.slackMessageTs, text, blocks: [] });
+					} catch (err) {
+						eventLogger.warn({ err }, "Failed to update permission message");
+					}
+				}
+			} else if (action.action_id === "permission_reject") {
+				const result = await prisma.permissionRequest.updateMany({
+					where: { id: requestId, status: "PENDING" },
+					data: { status: "REJECTED", approvedBy: userId, resolvedAt: new Date() },
+				});
+				const request = await prisma.permissionRequest.findUnique({ where: { id: requestId } });
+				if (request?.slackChannel && request.slackMessageTs) {
+					const text = result.count > 0
+						? `Rejected by <@${userId}>.`
+						: `Permission request already ${(request.status ?? "unknown").toLowerCase()}.`;
+					try {
+						await client.chat.update({ channel: request.slackChannel, ts: request.slackMessageTs, text, blocks: [] });
+					} catch (err) {
+						eventLogger.warn({ err }, "Failed to update permission message");
+					}
+				}
+			}
+		}
 	};
 
 	// ─── ConnectionManager ──────────────────────────────
@@ -580,16 +623,19 @@ async function main(): Promise<void> {
 
 	// ─── Dashboard API ──────────────────────────────────
 
-	const dashboardApi = createDashboardApi({
-		config,
-		prisma,
-		connectionManager,
-		pdClient,
-		integrationWatcher,
-		disconnectApp: syncHandler?.disconnectApp.bind(syncHandler),
-		logger: createLogger("dashboard-api"),
-	});
-	logger.info("Dashboard API enabled");
+	let dashboardApi: { fetch: (req: Request) => Promise<Response> } | undefined;
+	if (config.ENABLE_DASHBOARD) {
+		dashboardApi = createDashboardApi({
+			config,
+			prisma,
+			connectionManager,
+			pdClient,
+			integrationWatcher,
+			disconnectApp: syncHandler?.disconnectApp.bind(syncHandler),
+			logger: createLogger("dashboard-api"),
+		});
+		logger.info("Dashboard API enabled");
+	}
 
 	// ─── Gateway Server ─────────────────────────────────
 
@@ -601,6 +647,7 @@ async function main(): Promise<void> {
 			signingSecret: config.SLACK_SIGNING_SECRET,
 			connectionManager,
 			onEvent,
+			onInteraction,
 			logger: createLogger("events-api"),
 		});
 
@@ -644,7 +691,7 @@ async function main(): Promise<void> {
 			}
 
 			// Dashboard API
-			if (url.pathname.startsWith("/api/")) {
+			if (url.pathname.startsWith("/api/") && dashboardApi) {
 				const response = await dashboardApi.fetch(req);
 				for (const [key, value] of Object.entries(corsHeaders)) {
 					response.headers.set(key, value);
@@ -687,13 +734,16 @@ async function main(): Promise<void> {
 		);
 		registerWorkspaceToken("local", workspace.id);
 
-		// Register in ConnectionManager for health checks and dashboard API
-		await connectionManager.connect({
-			id: workspace.id,
-			slackTeamId: teamId,
-			slackBotToken: botToken,
-			slackBotUserId: botUserId,
-			slackAppToken: config.SLACK_APP_TOKEN,
+		// Register existing Bolt app in ConnectionManager for health checks and dashboard API
+		// (don't create a second SocketModeConnection)
+		connectionManager.registerExisting(workspace.id, teamId, {
+			workspaceId: workspace.id,
+			teamId,
+			botUserId,
+			start: async () => {},
+			stop: async () => { await app.stop(); },
+			getClient: () => app.client,
+			isConnected: () => true,
 		});
 
 		// Approval gate for permissions

@@ -1,7 +1,7 @@
 import { createHmac } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createEventsApiHandler } from "../slack/events-api.js";
 import type { ConnectionManager, EventHandler, SlackConnection } from "../slack/connection-manager.js";
+import { createEventsApiHandler } from "../slack/events-api.js";
 
 const SIGNING_SECRET = "test-signing-secret";
 
@@ -118,8 +118,7 @@ describe("Events API Handler", () => {
 		expect(res.status).toBe(200);
 
 		// Give async handler time to fire
-		await new Promise((r) => setTimeout(r, 50));
-		expect(onEvent).toHaveBeenCalledTimes(1);
+		await vi.waitFor(() => expect(onEvent).toHaveBeenCalledTimes(1));
 		const call = (onEvent as ReturnType<typeof vi.fn>).mock.calls[0];
 		expect(call[0].type).toBe("app_mention");
 		expect(call[0].teamId).toBe("T123");
@@ -142,8 +141,7 @@ describe("Events API Handler", () => {
 		const req = createMockRequest(body);
 		const res = await handler.handleEventsRequest(req);
 		expect(res.status).toBe(200);
-		await new Promise((r) => setTimeout(r, 50));
-		expect(onEvent).not.toHaveBeenCalled();
+		await vi.waitFor(() => expect(onEvent).not.toHaveBeenCalled());
 	});
 
 	it("maps message events correctly", async () => {
@@ -169,9 +167,8 @@ describe("Events API Handler", () => {
 		});
 		const req = createMockRequest(body);
 		await handler.handleEventsRequest(req);
-		await new Promise((r) => setTimeout(r, 50));
+		await vi.waitFor(() => expect(onEvent).toHaveBeenCalledTimes(1));
 
-		expect(onEvent).toHaveBeenCalledTimes(1);
 		const event = (onEvent as ReturnType<typeof vi.fn>).mock.calls[0][0];
 		expect(event.type).toBe("message");
 		expect(event.channelType).toBe("im");

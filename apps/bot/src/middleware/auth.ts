@@ -1,4 +1,4 @@
-import { createHmac } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import type { PrismaClient } from "@openviktor/db";
 import type { EnvConfig, Logger } from "@openviktor/shared";
 import { getDashboardAuthMode } from "@openviktor/shared";
@@ -35,7 +35,10 @@ function verifyJwt(token: string, secret: string): Record<string, unknown> | nul
 	if (parts.length !== 3) return null;
 	const [header, body, signature] = parts;
 	const expected = createHmac("sha256", secret).update(`${header}.${body}`).digest("base64url");
-	if (signature !== expected) return null;
+	const expectedBuf = Buffer.from(expected, "utf8");
+	const signatureBuf = Buffer.from(signature, "utf8");
+	if (expectedBuf.length !== signatureBuf.length || !timingSafeEqual(expectedBuf, signatureBuf))
+		return null;
 
 	try {
 		const payload = JSON.parse(Buffer.from(body, "base64url").toString());
@@ -60,7 +63,12 @@ export function createAuthMiddleware(deps: AuthMiddlewareConfig) {
 			return Response.json({ error: "Basic auth not enabled" }, { status: 400 });
 		}
 
-		const body = (await req.json()) as { username?: string; password?: string };
+		let body: { username?: string; password?: string };
+		try {
+			body = (await req.json()) as { username?: string; password?: string };
+		} catch {
+			return Response.json({ error: "Invalid JSON" }, { status: 400 });
+		}
 		const { username, password } = body;
 
 		if (!username || !password) {
@@ -74,9 +82,10 @@ export function createAuthMiddleware(deps: AuthMiddlewareConfig) {
 
 		const token = signJwt({ sub: username, mode: "basic" }, jwtSecret);
 
+		const secure = config.NODE_ENV === "production" ? "; Secure" : "";
 		const headers = new Headers({
 			"Content-Type": "application/json",
-			"Set-Cookie": `ov_session=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=86400`,
+			"Set-Cookie": `ov_session=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=86400${secure}`,
 		});
 
 		return new Response(JSON.stringify({ success: true }), { headers });

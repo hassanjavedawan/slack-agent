@@ -59,14 +59,11 @@ export function createDashboardApi(deps: DashboardApiDeps) {
 	const auth = createAuthMiddleware({ config, prisma, logger });
 
 	async function getWorkspace(workspaceId?: string | null) {
-		if (workspaceId) {
-			const workspace = await prisma.workspace.findUnique({ where: { id: workspaceId } });
-			if (!workspace) throw new Error("Workspace not found");
-			return workspace;
+		if (!workspaceId) {
+			throw new Error("Workspace ID is required. Pass X-Workspace-Id header.");
 		}
-		// Fallback for backward compatibility: return first workspace
-		const workspace = await prisma.workspace.findFirst({ where: { isActive: true } });
-		if (!workspace) throw new Error("No workspace found. Set up the bot first.");
+		const workspace = await prisma.workspace.findUnique({ where: { id: workspaceId } });
+		if (!workspace) throw new Error("Workspace not found");
 		return workspace;
 	}
 

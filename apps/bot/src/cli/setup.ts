@@ -3,6 +3,13 @@ import { resolve } from "node:path";
 import { createInterface } from "node:readline";
 import { generateEncryptionKey } from "@openviktor/shared";
 
+function escapeEnvValue(value: string): string {
+	if (/[\s#"'\\]/.test(value) || value.includes("=")) {
+		return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n")}"`;
+	}
+	return value;
+}
+
 const rl = createInterface({ input: process.stdin, output: process.stdout });
 const ask = (q: string): Promise<string> =>
 	new Promise((res) => rl.question(q, (a) => res(a.trim())));
@@ -85,26 +92,26 @@ async function main() {
 		"DEPLOYMENT_MODE=selfhosted",
 		"",
 		"# Slack",
-		`SLACK_BOT_TOKEN=${botToken}`,
-		`SLACK_APP_TOKEN=${appToken}`,
-		`SLACK_SIGNING_SECRET=${signingSecret}`,
+		`SLACK_BOT_TOKEN=${escapeEnvValue(botToken)}`,
+		`SLACK_APP_TOKEN=${escapeEnvValue(appToken)}`,
+		`SLACK_SIGNING_SECRET=${escapeEnvValue(signingSecret)}`,
 		"",
 		"# LLM",
-		`ANTHROPIC_API_KEY=${anthropicKey}`,
-		...(openaiKey ? [`OPENAI_API_KEY=${openaiKey}`] : []),
-		...(googleKey ? [`GOOGLE_AI_API_KEY=${googleKey}`] : []),
+		`ANTHROPIC_API_KEY=${escapeEnvValue(anthropicKey)}`,
+		...(openaiKey ? [`OPENAI_API_KEY=${escapeEnvValue(openaiKey)}`] : []),
+		...(googleKey ? [`GOOGLE_AI_API_KEY=${escapeEnvValue(googleKey)}`] : []),
 		"",
 		"# Database",
-		`DATABASE_URL=postgresql://openviktor:${dbPassword}@localhost:5432/openviktor`,
-		`POSTGRES_PASSWORD=${dbPassword}`,
+		`DATABASE_URL=postgresql://openviktor:${escapeEnvValue(dbPassword)}@postgres:5432/openviktor`,
+		`POSTGRES_PASSWORD=${escapeEnvValue(dbPassword)}`,
 		"",
 		"# Redis",
-		"REDIS_URL=redis://localhost:6379",
+		"REDIS_URL=redis://redis:6379",
 		"",
 		"# Dashboard",
 		"DASHBOARD_AUTH_MODE=basic",
 		"DASHBOARD_USERNAME=admin",
-		`DASHBOARD_PASSWORD=${dashboardPassword}`,
+		`DASHBOARD_PASSWORD=${escapeEnvValue(dashboardPassword)}`,
 		"",
 		"# Security",
 		`ENCRYPTION_KEY=${encryptionKey}`,

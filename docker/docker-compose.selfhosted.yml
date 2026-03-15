@@ -4,7 +4,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: openviktor
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-openviktor}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       POSTGRES_DB: openviktor
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -46,7 +46,7 @@ services:
       redis:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://openviktor:${POSTGRES_PASSWORD:-openviktor}@postgres:5432/openviktor
+      DATABASE_URL: postgresql://openviktor:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/openviktor
       REDIS_URL: redis://redis:6379
       DEPLOYMENT_MODE: selfhosted
       SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN}

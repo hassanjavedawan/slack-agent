@@ -198,7 +198,7 @@ docker compose -f docker/docker-compose.selfhosted.yml down
 # Restore database
 docker compose -f docker/docker-compose.selfhosted.yml up -d postgres
 docker compose -f docker/docker-compose.selfhosted.yml exec -T postgres \
-  psql -U openviktor openviktor < backup_20260315.sql
+  psql -U openviktor openviktor < backup_YYYYMMDD.sql
 
 # Start all services
 docker compose -f docker/docker-compose.selfhosted.yml up -d
