@@ -205,9 +205,7 @@ describe("slack message mrkdwn conversion", () => {
 			await slackTools.coworker_send_slack_message(
 				{
 					channel: "C123",
-					blocks: [
-						{ type: "section", text: { type: "mrkdwn", text: "Hello world" } },
-					],
+					blocks: [{ type: "section", text: { type: "mrkdwn", text: "Hello world" } }],
 					do_send: true,
 					reflection: "test",
 				},
