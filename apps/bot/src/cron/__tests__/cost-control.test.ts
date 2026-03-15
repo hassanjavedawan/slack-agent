@@ -7,6 +7,7 @@ describe("checkWorkspaceBudget", () => {
 			workspace: {
 				findUnique: vi.fn().mockResolvedValue({ settings: {} }),
 			},
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
 		} as any;
 
 		const result = await checkWorkspaceBudget(prisma, "ws-1");
@@ -18,6 +19,7 @@ describe("checkWorkspaceBudget", () => {
 			workspace: {
 				findUnique: vi.fn().mockResolvedValue(null),
 			},
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
 		} as any;
 
 		const result = await checkWorkspaceBudget(prisma, "ws-nonexistent");
@@ -34,6 +36,7 @@ describe("checkWorkspaceBudget", () => {
 			agentRun: {
 				aggregate: vi.fn().mockResolvedValue({ _sum: { costCents: 5000 } }),
 			},
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
 		} as any;
 
 		const result = await checkWorkspaceBudget(prisma, "ws-1");
@@ -50,6 +53,7 @@ describe("checkWorkspaceBudget", () => {
 			agentRun: {
 				aggregate: vi.fn().mockResolvedValue({ _sum: { costCents: 10000 } }),
 			},
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
 		} as any;
 
 		const result = await checkWorkspaceBudget(prisma, "ws-1");
@@ -66,6 +70,7 @@ describe("checkWorkspaceBudget", () => {
 			agentRun: {
 				aggregate: vi.fn().mockResolvedValue({ _sum: { costCents: 10001 } }),
 			},
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
 		} as any;
 
 		const result = await checkWorkspaceBudget(prisma, "ws-1");
