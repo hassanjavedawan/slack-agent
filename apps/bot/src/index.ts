@@ -582,11 +582,17 @@ async function main(): Promise<void> {
 				});
 				const request = await prisma.permissionRequest.findUnique({ where: { id: requestId } });
 				if (request?.slackChannel && request.slackMessageTs) {
-					const text = result.count > 0
-						? `Approved by <@${userId}>. Executing \`${request.toolName}\`...`
-						: `Permission request already ${(request.status ?? "unknown").toLowerCase()}.`;
+					const text =
+						result.count > 0
+							? `Approved by <@${userId}>. Executing \`${request.toolName}\`...`
+							: `Permission request already ${(request.status ?? "unknown").toLowerCase()}.`;
 					try {
-						await client.chat.update({ channel: request.slackChannel, ts: request.slackMessageTs, text, blocks: [] });
+						await client.chat.update({
+							channel: request.slackChannel,
+							ts: request.slackMessageTs,
+							text,
+							blocks: [],
+						});
 					} catch (err) {
 						eventLogger.warn({ err }, "Failed to update permission message");
 					}
@@ -598,11 +604,17 @@ async function main(): Promise<void> {
 				});
 				const request = await prisma.permissionRequest.findUnique({ where: { id: requestId } });
 				if (request?.slackChannel && request.slackMessageTs) {
-					const text = result.count > 0
-						? `Rejected by <@${userId}>.`
-						: `Permission request already ${(request.status ?? "unknown").toLowerCase()}.`;
+					const text =
+						result.count > 0
+							? `Rejected by <@${userId}>.`
+							: `Permission request already ${(request.status ?? "unknown").toLowerCase()}.`;
 					try {
-						await client.chat.update({ channel: request.slackChannel, ts: request.slackMessageTs, text, blocks: [] });
+						await client.chat.update({
+							channel: request.slackChannel,
+							ts: request.slackMessageTs,
+							text,
+							blocks: [],
+						});
 					} catch (err) {
 						eventLogger.warn({ err }, "Failed to update permission message");
 					}
@@ -741,7 +753,9 @@ async function main(): Promise<void> {
 			teamId,
 			botUserId,
 			start: async () => {},
-			stop: async () => { await app.stop(); },
+			stop: async () => {
+				await app.stop();
+			},
 			getClient: () => app.client,
 			isConnected: () => true,
 		});
@@ -806,9 +820,7 @@ async function main(): Promise<void> {
 									blocks: opts.blocks as never[],
 								});
 								return result.ts ?? null;
-							} catch {
-								continue;
-							}
+							} catch {}
 						}
 						logger.error({ channel }, "No connection could post permission message");
 						return null;

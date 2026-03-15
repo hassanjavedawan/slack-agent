@@ -1,7 +1,12 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { Logger } from "@openviktor/shared";
 import type { WebClient } from "@slack/web-api";
-import type { ConnectionManager, EventHandler, InteractionHandler, SlackEvent } from "./connection-manager.js";
+import type {
+	ConnectionManager,
+	EventHandler,
+	InteractionHandler,
+	SlackEvent,
+} from "./connection-manager.js";
 
 export interface EventsApiConfig {
 	signingSecret: string;
@@ -102,7 +107,8 @@ export function createEventsApiHandler(config: EventsApiConfig) {
 		} catch {
 			return new Response("Invalid JSON", { status: 400 });
 		}
-		const teamId = ((payload.team as Record<string, unknown>)?.id ?? (payload.user as Record<string, unknown>)?.team_id) as string | undefined;
+		const teamId = ((payload.team as Record<string, unknown>)?.id ??
+			(payload.user as Record<string, unknown>)?.team_id) as string | undefined;
 
 		if (!teamId) {
 			logger.warn("No team_id in interaction payload");
@@ -117,10 +123,7 @@ export function createEventsApiHandler(config: EventsApiConfig) {
 
 		// Acknowledge immediately — interactions have a 3s deadline
 		if (onInteraction) {
-			void onInteraction(
-				{ type: "block_actions", teamId, payload },
-				connection,
-			).catch((err) => {
+			void onInteraction({ type: "block_actions", teamId, payload }, connection).catch((err) => {
 				logger.error({ err, teamId }, "Error processing interaction");
 			});
 		}

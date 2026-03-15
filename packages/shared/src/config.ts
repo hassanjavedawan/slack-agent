@@ -22,7 +22,10 @@ const envSchema = z
 		DASHBOARD_PASSWORD: z.string().optional(),
 
 		// Encryption
-		ENCRYPTION_KEY: z.string().regex(/^[0-9a-fA-F]{64}$/, "ENCRYPTION_KEY must be a 64-character hex string").optional(),
+		ENCRYPTION_KEY: z
+			.string()
+			.regex(/^[0-9a-fA-F]{64}$/, "ENCRYPTION_KEY must be a 64-character hex string")
+			.optional(),
 
 		// LLM
 		ANTHROPIC_API_KEY: z.string().min(1),

@@ -56,19 +56,19 @@ describe("deployment mode config", () => {
 
 		it("requires SLACK_BOT_TOKEN in selfhosted mode", () => {
 			const env = { ...selfHostedEnv };
-			delete (env as Record<string, unknown>).SLACK_BOT_TOKEN;
+			(env as Record<string, unknown>).SLACK_BOT_TOKEN = undefined;
 			expect(() => loadConfig(env)).toThrow("SLACK_BOT_TOKEN");
 		});
 
 		it("requires SLACK_APP_TOKEN in selfhosted mode", () => {
 			const env = { ...selfHostedEnv };
-			delete (env as Record<string, unknown>).SLACK_APP_TOKEN;
+			(env as Record<string, unknown>).SLACK_APP_TOKEN = undefined;
 			expect(() => loadConfig(env)).toThrow("SLACK_APP_TOKEN");
 		});
 
 		it("requires DASHBOARD_PASSWORD when auth mode is basic", () => {
 			const env = { ...selfHostedEnv };
-			delete (env as Record<string, unknown>).DASHBOARD_PASSWORD;
+			(env as Record<string, unknown>).DASHBOARD_PASSWORD = undefined;
 			expect(() => loadConfig(env)).toThrow("DASHBOARD_PASSWORD");
 		});
 	});
@@ -87,31 +87,31 @@ describe("deployment mode config", () => {
 
 		it("requires SLACK_CLIENT_ID in managed mode", () => {
 			const env = { ...managedEnv };
-			delete (env as Record<string, unknown>).SLACK_CLIENT_ID;
+			(env as Record<string, unknown>).SLACK_CLIENT_ID = undefined;
 			expect(() => loadConfig(env)).toThrow("SLACK_CLIENT_ID");
 		});
 
 		it("requires SLACK_CLIENT_SECRET in managed mode", () => {
 			const env = { ...managedEnv };
-			delete (env as Record<string, unknown>).SLACK_CLIENT_SECRET;
+			(env as Record<string, unknown>).SLACK_CLIENT_SECRET = undefined;
 			expect(() => loadConfig(env)).toThrow("SLACK_CLIENT_SECRET");
 		});
 
 		it("requires SLACK_STATE_SECRET in managed mode", () => {
 			const env = { ...managedEnv };
-			delete (env as Record<string, unknown>).SLACK_STATE_SECRET;
+			(env as Record<string, unknown>).SLACK_STATE_SECRET = undefined;
 			expect(() => loadConfig(env)).toThrow("SLACK_STATE_SECRET");
 		});
 
 		it("requires BASE_URL in managed mode", () => {
 			const env = { ...managedEnv };
-			delete (env as Record<string, unknown>).BASE_URL;
+			(env as Record<string, unknown>).BASE_URL = undefined;
 			expect(() => loadConfig(env)).toThrow("BASE_URL");
 		});
 
 		it("requires ENCRYPTION_KEY in managed mode", () => {
 			const env = { ...managedEnv };
-			delete (env as Record<string, unknown>).ENCRYPTION_KEY;
+			(env as Record<string, unknown>).ENCRYPTION_KEY = undefined;
 			expect(() => loadConfig(env)).toThrow("ENCRYPTION_KEY");
 		});
 	});

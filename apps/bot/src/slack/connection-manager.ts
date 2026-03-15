@@ -293,11 +293,7 @@ export class ConnectionManager {
 		return connection;
 	}
 
-	registerExisting(
-		workspaceId: string,
-		teamId: string,
-		connection: SlackConnection,
-	): void {
+	registerExisting(workspaceId: string, teamId: string, connection: SlackConnection): void {
 		this.connections.set(workspaceId, connection);
 		this.teamToWorkspace.set(teamId, workspaceId);
 	}
