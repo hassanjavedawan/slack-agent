@@ -21,6 +21,7 @@ import {
 	registerDbTools,
 	registerThreadOrchestrationTools,
 	restoreToolsFromDb,
+	deploySdkToWorkspace,
 	submitPermissionRequestDefinition,
 	syncWorkspaceConnectionsDefinition,
 } from "@openviktor/tools";
@@ -51,6 +52,7 @@ import {
 import { createConcurrencyLimiter } from "./thread/concurrency.js";
 import { ThreadLock } from "./thread/lock.js";
 import { StaleThreadDetector } from "./thread/stale.js";
+import { createDashboardApi } from "./tool-gateway/dashboard-api.js";
 import { createToolGateway, registerWorkspaceToken } from "./tool-gateway/server.js";
 
 const logger = createLogger("bot");
@@ -105,9 +107,37 @@ async function main(): Promise<void> {
 	const gateway = createToolGateway(gatewayDeps);
 
 	const gatewayPort = config.TOOL_GATEWAY_PORT;
+
+	// Dashboard API is wired up after Pipedream setup — placeholder overwritten below
+	let dashboardApi: { fetch: (req: Request) => Promise<Response> } = {
+		fetch: async () => Response.json({ error: "Not ready" }, { status: 503 }),
+	};
+
+	const corsHeaders: Record<string, string> = {
+		"Access-Control-Allow-Origin": "*",
+		"Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+		"Access-Control-Allow-Headers": "Content-Type, Authorization",
+	};
+
 	const gatewayServer = Bun.serve({
 		port: gatewayPort,
-		fetch: gateway.fetch,
+		fetch: async (req: Request) => {
+			const url = new URL(req.url, "http://localhost");
+
+			if (req.method === "OPTIONS") {
+				return new Response(null, { status: 204, headers: corsHeaders });
+			}
+
+			if (url.pathname.startsWith("/api/")) {
+				const response = await dashboardApi.fetch(req);
+				for (const [key, value] of Object.entries(corsHeaders)) {
+					response.headers.set(key, value);
+				}
+				return response;
+			}
+
+			return gateway.fetch(req);
+		},
 	});
 	logger.info(
 		{ port: gatewayServer.port, tools: registry.getAllDefinitions().map((t) => t.name) },
@@ -206,6 +236,8 @@ async function main(): Promise<void> {
 
 	// Pipedream integration tools
 	let integrationWatcher: IntegrationWatcher | undefined;
+	let pdClient: PipedreamClient | undefined;
+	let syncHandler: ReturnType<typeof createIntegrationSyncHandler> | undefined;
 	const hasPipedream = !!(
 		config.PIPEDREAM_CLIENT_ID &&
 		config.PIPEDREAM_CLIENT_SECRET &&
@@ -218,10 +250,10 @@ async function main(): Promise<void> {
 			projectId: config.PIPEDREAM_PROJECT_ID as string,
 			environment: config.PIPEDREAM_ENVIRONMENT,
 		};
-		const pdClient = new PipedreamClient(pdConfig);
+		pdClient = new PipedreamClient(pdConfig);
 		const skipPermissions = config.DANGEROUSLY_SKIP_PERMISSIONS;
 
-		const syncHandler = createIntegrationSyncHandler(registry, pdClient, prisma, skipPermissions);
+		syncHandler = createIntegrationSyncHandler(registry, pdClient, prisma, skipPermissions);
 
 		const refreshRunnerTools = () => {
 			runner.updateToolConfig({
@@ -287,10 +319,34 @@ async function main(): Promise<void> {
 		logger.info("Pipedream integration disabled (no credentials configured)");
 	}
 
+	// Wire up dashboard API with all dependencies
+	dashboardApi = createDashboardApi({
+		prisma,
+		pdClient,
+		integrationWatcher,
+		disconnectApp: syncHandler?.disconnectApp.bind(syncHandler),
+		logger: createLogger("dashboard-api"),
+	});
+	logger.info("Dashboard API enabled");
+
 	runner.updateToolConfig({
 		client: gatewayClient,
 		tools: registry.getDefinitions(),
 	});
+
+	// Deploy Python SDK to all active workspaces
+	const allTools = registry.getAllDefinitions();
+	prisma.workspace
+		.findMany({ select: { id: true } })
+		.then(async (workspaces) => {
+			for (const ws of workspaces) {
+				await deploySdkToWorkspace(ws.id, allTools).catch(() => {});
+			}
+			if (workspaces.length > 0) {
+				logger.info({ count: workspaces.length }, "Deployed Python SDK to workspaces");
+			}
+		})
+		.catch((err) => logger.warn({ err }, "Failed to deploy SDK to workspaces"));
 
 	scheduler.start();
 
