@@ -96,10 +96,7 @@ export async function seedBuiltinSkills(
 	}
 
 	if (created.length > 0 || updated.length > 0) {
-		logger?.info(
-			{ created, updated, unchanged: unchanged.length },
-			"Seeded built-in skills",
-		);
+		logger?.info({ created, updated, unchanged: unchanged.length }, "Seeded built-in skills");
 	}
 
 	return { created, updated, unchanged };

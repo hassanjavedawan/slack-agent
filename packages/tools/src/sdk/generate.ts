@@ -236,7 +236,7 @@ function generateModule(moduleName: string, tools: LLMToolDefinition[]): string 
 
 	const functions = tools.map(generateFunction);
 
-	return imports.join("\n") + functions.join("\n") + "\n";
+	return `${imports.join("\n")}${functions.join("\n")}\n`;
 }
 
 function generateToolsInit(moduleNames: string[]): string {
@@ -325,7 +325,8 @@ export async function generateSdk(opts: GenerateSdkOptions): Promise<string[]> {
 	written.push("sdk/internal/__init__.py");
 
 	// Write sdk/internal/client.py
-	const clientPath = opts.clientTemplatePath ?? join(dirname(__filename), "../../..", "infra/sdk/client.py");
+	const clientPath =
+		opts.clientTemplatePath ?? join(dirname(__filename), "../../..", "infra/sdk/client.py");
 	let clientContent: string;
 	try {
 		clientContent = readFileSync(clientPath, "utf-8");

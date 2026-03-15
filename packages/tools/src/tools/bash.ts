@@ -39,7 +39,9 @@ export const bashExecutor: ToolExecutor = async (args, ctx) => {
 				...process.env,
 				HOME: ctx.workspaceDir,
 				PYTHONPATH: ctx.workspaceDir,
-				TOOL_GATEWAY_URL: process.env.TOOL_GATEWAY_URL ?? `http://localhost:${process.env.TOOL_GATEWAY_PORT ?? "3001"}`,
+				TOOL_GATEWAY_URL:
+					process.env.TOOL_GATEWAY_URL ??
+					`http://localhost:${process.env.TOOL_GATEWAY_PORT ?? "3001"}`,
 				TOOL_TOKEN: process.env.TOOL_TOKEN ?? "local",
 			},
 			stdio: ["ignore", "pipe", "pipe"],

@@ -23,13 +23,13 @@ import {
 	createNativeRegistry,
 	createSubmitPermissionRequestExecutor,
 	createSyncWorkspaceConnectionsExecutor,
+	deploySdkToWorkspace,
 	disconnectIntegrationDefinition,
 	listAvailableIntegrationsDefinition,
 	listWorkspaceConnectionsDefinition,
 	registerDbTools,
 	registerThreadOrchestrationTools,
 	restoreToolsFromDb,
-	deploySdkToWorkspace,
 	submitPermissionRequestDefinition,
 	syncWorkspaceConnectionsDefinition,
 } from "@openviktor/tools";
@@ -329,16 +329,6 @@ async function main(): Promise<void> {
 	} else {
 		logger.info("Pipedream integration disabled (no credentials configured)");
 	}
-
-	// Wire up dashboard API with all dependencies
-	dashboardApi = createDashboardApi({
-		prisma,
-		pdClient,
-		integrationWatcher,
-		disconnectApp: syncHandler?.disconnectApp.bind(syncHandler),
-		logger: createLogger("dashboard-api"),
-	});
-	logger.info("Dashboard API enabled");
 
 	runner.updateToolConfig({
 		client: gatewayClient,
