@@ -22,7 +22,7 @@ export function createPipedreamActionExecutor(
 	client: PipedreamClient,
 	prisma: PrismaClient,
 	account: IntegrationAccountRow,
-	action: { id: string; key: string; appPropName?: string },
+	action: { key: string; appPropName?: string },
 	skipPermissions: boolean,
 ): ToolExecutor {
 	return async (args, ctx) => {
@@ -48,7 +48,7 @@ export function createPipedreamActionExecutor(
 		}
 
 		const result = await client.runAction({
-			actionId: action.id,
+			actionId: action.key,
 			externalUserId: account.externalUserId,
 			configuredProps,
 		});
@@ -323,7 +323,7 @@ export async function registerIntegrationTools(
 			client,
 			prisma,
 			account,
-			{ id: action.id, key: action.key, appPropName },
+			{ key: action.key, appPropName },
 			skipPermissions,
 		);
 
@@ -341,7 +341,7 @@ export async function registerIntegrationTools(
 				description: definition.description,
 				schema: JSON.parse(JSON.stringify(inputSchema)),
 				config: {
-					actionId: action.id,
+					actionId: action.key,
 					actionKey: action.key,
 					actionVersion: action.version,
 					appSlug: account.appSlug,
@@ -357,7 +357,7 @@ export async function registerIntegrationTools(
 				type: "PIPEDREAM",
 				schema: JSON.parse(JSON.stringify(inputSchema)),
 				config: {
-					actionId: action.id,
+					actionId: action.key,
 					actionKey: action.key,
 					actionVersion: action.version,
 					appSlug: account.appSlug,
@@ -479,9 +479,8 @@ function restoreActionTool(
 ): string | null {
 	const config = td.config as Record<string, unknown>;
 	const appSlug = config.appSlug as string;
-	const actionId = config.actionId as string;
 	const actionKey = config.actionKey as string;
-	if (!appSlug || !actionId || !actionKey) return null;
+	if (!appSlug || !actionKey) return null;
 
 	const account: IntegrationAccountRow = {
 		id: "",
@@ -502,7 +501,7 @@ function restoreActionTool(
 		deps.client,
 		deps.prisma,
 		account,
-		{ id: actionId, key: actionKey, appPropName: config.appPropName as string | undefined },
+		{ key: actionKey, appPropName: config.appPropName as string | undefined },
 		deps.skipPermissions,
 	);
 

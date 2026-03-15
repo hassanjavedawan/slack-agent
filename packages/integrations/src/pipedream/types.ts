@@ -26,7 +26,7 @@ export interface PipedreamConfigurableProp {
 }
 
 export interface PipedreamAction {
-	id: string;
+	id?: string;
 	key: string;
 	name: string;
 	description?: string;
