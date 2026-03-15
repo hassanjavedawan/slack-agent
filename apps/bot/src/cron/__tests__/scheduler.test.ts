@@ -11,6 +11,7 @@ function createMockLogger() {
 		trace: vi.fn(),
 		child: vi.fn().mockReturnThis(),
 		level: "info" as const,
+		// biome-ignore lint/suspicious/noExplicitAny: test mock
 	} as any;
 }
 
@@ -26,6 +27,7 @@ function createMockRunner() {
 			durationMs: 1000,
 		}),
 		updateToolConfig: vi.fn(),
+		// biome-ignore lint/suspicious/noExplicitAny: test mock
 	} as any;
 }
 
@@ -45,6 +47,7 @@ function createMockPrisma(dueJobs: unknown[] = []) {
 		thread: {
 			findMany: vi.fn().mockResolvedValue([]),
 		},
+		// biome-ignore lint/suspicious/noExplicitAny: test mock
 	} as any;
 }
 

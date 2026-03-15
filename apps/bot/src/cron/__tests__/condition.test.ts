@@ -11,6 +11,7 @@ function createMockLogger() {
 		trace: vi.fn(),
 		child: vi.fn().mockReturnThis(),
 		level: "info" as const,
+		// biome-ignore lint/suspicious/noExplicitAny: test mock
 	} as any;
 }
 
@@ -24,6 +25,7 @@ function createMockContext(overrides: Partial<ConditionContext> = {}): Condition
 }
 
 describe("evaluateCondition", () => {
+	// biome-ignore lint/suspicious/noExplicitAny: test mock
 	const mockPrisma = {} as any;
 
 	it("returns true for a truthy script", async () => {
@@ -114,6 +116,7 @@ describe("createConditionHelpers", () => {
 			message: {
 				findFirst: vi.fn().mockResolvedValue({ id: "msg-1" }),
 			},
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
 		} as any;
 
 		const ctx = createMockContext();
@@ -135,6 +138,7 @@ describe("createConditionHelpers", () => {
 			message: {
 				findFirst: vi.fn().mockResolvedValue(null),
 			},
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
 		} as any;
 
 		const helpers = createConditionHelpers(mockPrisma, createMockContext());
@@ -147,6 +151,7 @@ describe("createConditionHelpers", () => {
 			agentRun: {
 				aggregate: vi.fn().mockResolvedValue({ _sum: { costCents: 50 } }),
 			},
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
 		} as any;
 
 		const helpers = createConditionHelpers(mockPrisma, createMockContext());
@@ -159,6 +164,7 @@ describe("createConditionHelpers", () => {
 			agentRun: {
 				aggregate: vi.fn().mockResolvedValue({ _sum: { costCents: 150 } }),
 			},
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
 		} as any;
 
 		const helpers = createConditionHelpers(mockPrisma, createMockContext());
@@ -171,6 +177,7 @@ describe("createConditionHelpers", () => {
 			thread: {
 				findFirst: vi.fn().mockResolvedValue({ id: "thread-1" }),
 			},
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
 		} as any;
 
 		const helpers = createConditionHelpers(mockPrisma, createMockContext());

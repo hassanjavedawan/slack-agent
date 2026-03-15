@@ -80,6 +80,7 @@ describe("seedDiscovery", () => {
 				findFirst: vi.fn().mockResolvedValue(null),
 				create: vi.fn().mockResolvedValue({ id: "cron-1" }),
 			},
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
 		} as any;
 
 		await seedDiscovery(prisma, "ws-1");
@@ -102,6 +103,7 @@ describe("seedDiscovery", () => {
 				findFirst: vi.fn().mockResolvedValue({ id: "existing" }),
 				create: vi.fn(),
 			},
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
 		} as any;
 
 		await seedDiscovery(prisma, "ws-1");
@@ -115,6 +117,7 @@ describe("seedDiscovery", () => {
 				findFirst: vi.fn().mockResolvedValue(null),
 				create: vi.fn().mockResolvedValue({ id: "cron-1" }),
 			},
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
 		} as any;
 
 		await seedDiscovery(prisma, "ws-1");
@@ -132,6 +135,7 @@ describe("seedDiscovery", () => {
 				findFirst: vi.fn().mockResolvedValue(null),
 				create: vi.fn().mockResolvedValue({ id: "cron-1" }),
 			},
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
 		} as any;
 
 		await seedDiscovery(prisma, "ws-1");

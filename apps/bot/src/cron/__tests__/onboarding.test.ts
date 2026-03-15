@@ -48,6 +48,7 @@ describe("isOnboardingNeeded", () => {
 	it("returns true for fresh workspace with no runs", async () => {
 		const prisma = {
 			agentRun: { count: vi.fn().mockResolvedValue(0) },
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
 		} as any;
 
 		const workspace = { id: "ws-1", settings: {} };
@@ -58,6 +59,7 @@ describe("isOnboardingNeeded", () => {
 	it("returns false if onboardingCompletedAt is set", async () => {
 		const prisma = {
 			agentRun: { count: vi.fn() },
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
 		} as any;
 
 		const workspace = {
@@ -72,6 +74,7 @@ describe("isOnboardingNeeded", () => {
 	it("returns false if workspace has prior runs", async () => {
 		const prisma = {
 			agentRun: { count: vi.fn().mockResolvedValue(3) },
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
 		} as any;
 
 		const workspace = { id: "ws-1", settings: {} };
@@ -82,6 +85,7 @@ describe("isOnboardingNeeded", () => {
 	it("returns true when settings is null", async () => {
 		const prisma = {
 			agentRun: { count: vi.fn().mockResolvedValue(0) },
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
 		} as any;
 
 		const workspace = { id: "ws-1", settings: null };
@@ -94,6 +98,7 @@ describe("markOnboardingComplete", () => {
 	it("updates workspace settings with onboardingCompletedAt", async () => {
 		const prisma = {
 			workspace: { update: vi.fn().mockResolvedValue({}) },
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
 		} as any;
 
 		const workspace = { id: "ws-1", settings: { existingKey: "value" } };
@@ -113,6 +118,7 @@ describe("markOnboardingComplete", () => {
 	it("handles null settings gracefully", async () => {
 		const prisma = {
 			workspace: { update: vi.fn().mockResolvedValue({}) },
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
 		} as any;
 
 		const workspace = { id: "ws-1", settings: null };
@@ -136,7 +142,9 @@ describe("seedChannelIntros", () => {
 				findFirst: vi.fn().mockResolvedValue(null),
 				create: vi.fn().mockResolvedValue({ id: "cron-1" }),
 			},
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
 		} as any;
+		// biome-ignore lint/suspicious/noExplicitAny: test mock
 		const logger = { info: vi.fn() } as any;
 
 		await seedChannelIntros(prisma, "ws-1", logger);
@@ -159,7 +167,9 @@ describe("seedChannelIntros", () => {
 				findFirst: vi.fn().mockResolvedValue({ id: "existing" }),
 				create: vi.fn(),
 			},
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
 		} as any;
+		// biome-ignore lint/suspicious/noExplicitAny: test mock
 		const logger = { info: vi.fn() } as any;
 
 		await seedChannelIntros(prisma, "ws-1", logger);
@@ -173,7 +183,9 @@ describe("seedChannelIntros", () => {
 				findFirst: vi.fn().mockResolvedValue(null),
 				create: vi.fn().mockResolvedValue({ id: "cron-1" }),
 			},
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
 		} as any;
+		// biome-ignore lint/suspicious/noExplicitAny: test mock
 		const logger = { info: vi.fn() } as any;
 
 		await seedChannelIntros(prisma, "ws-1", logger);
