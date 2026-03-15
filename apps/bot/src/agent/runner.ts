@@ -878,7 +878,13 @@ export class AgentRunner {
 
 		if (result.error) {
 			this.logger.warn(
-				{ tool: toolUse.name, agentRunId, error: result.error, durationMs: result.durationMs },
+				{
+					tool: toolUse.name,
+					agentRunId,
+					error: result.error,
+					durationMs: result.durationMs,
+					args: toolUse.input,
+				},
 				"Tool gateway call failed",
 			);
 			return {

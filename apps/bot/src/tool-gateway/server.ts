@@ -85,7 +85,7 @@ export function createToolGateway(deps: GatewayDeps): {
 
 		if (result.error) {
 			logger.warn(
-				{ tool: body.role, workspaceId, durationMs, error: result.error },
+				{ tool: body.role, workspaceId, durationMs, error: result.error, args: body.arguments },
 				"Tool call failed",
 			);
 			return Response.json({ error: result.error });

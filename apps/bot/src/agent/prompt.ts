@@ -10,6 +10,7 @@ export interface PromptContext {
 	workspaceName: string;
 	channel: string;
 	slackThreadTs?: string;
+	userMessageTs?: string;
 	triggerType: TriggerType;
 	userName?: string;
 	skillCatalog?: string[];
@@ -149,7 +150,9 @@ function buildInteractivePrompt(ctx: PromptContext): string {
 		"- For reactive responses (replying to a DM or mention), always use the originating channel and thread_ts.",
 		"",
 		"## Reactions",
-		"- Use `coworker_slack_react` to add emoji reactions to messages when appropriate:",
+		"- Use `coworker_slack_react` to add emoji reactions to messages.",
+		"- To react to the user's message, use the **User message ts** from your context as the `timestamp` parameter.",
+		"- Suggested reactions:",
 		"  - :eyes: — acknowledging something you've noticed or are reviewing",
 		"  - :bulb: — sharing an insight or idea",
 		"  - :tada: — celebrating achievements or good news",
@@ -165,6 +168,10 @@ function buildInteractivePrompt(ctx: PromptContext): string {
 
 	if (ctx.slackThreadTs) {
 		lines.push(`- Thread: ${ctx.slackThreadTs}`);
+	}
+
+	if (ctx.userMessageTs) {
+		lines.push(`- User message ts: ${ctx.userMessageTs}`);
 	}
 
 	if (ctx.userName) {
