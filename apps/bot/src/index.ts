@@ -23,6 +23,7 @@ import {
 	createNativeRegistry,
 	createSubmitPermissionRequestExecutor,
 	createSyncWorkspaceConnectionsExecutor,
+	deploySdkToWorkspace,
 	disconnectIntegrationDefinition,
 	listAvailableIntegrationsDefinition,
 	listWorkspaceConnectionsDefinition,
@@ -53,6 +54,7 @@ import {
 	seedChannelIntros,
 } from "./cron/onboarding.js";
 import { IntegrationWatcher } from "./integrations/watcher.js";
+import { seedBuiltinSkills } from "./skills/seed.js";
 import {
 	ConnectionManager,
 	type EventHandler,
@@ -333,6 +335,20 @@ async function main(): Promise<void> {
 		tools: registry.getDefinitions(),
 	});
 
+	// Deploy Python SDK to all active workspaces
+	const allTools = registry.getAllDefinitions();
+	prisma.workspace
+		.findMany({ select: { id: true } })
+		.then(async (workspaces) => {
+			for (const ws of workspaces) {
+				await deploySdkToWorkspace(ws.id, allTools).catch(() => {});
+			}
+			if (workspaces.length > 0) {
+				logger.info({ count: workspaces.length }, "Deployed Python SDK to workspaces");
+			}
+		})
+		.catch((err) => logger.warn({ err }, "Failed to deploy SDK to workspaces"));
+
 	scheduler.start();
 
 	// ─── Unified event handler ──────────────────────────
@@ -524,6 +540,7 @@ async function main(): Promise<void> {
 					workspaceName: workspace.slackTeamName,
 					channel: event.channel,
 					slackThreadTs: threadTs,
+					userMessageTs: event.ts,
 					triggerType,
 					userName: member.displayName ?? undefined,
 					skillCatalog,
@@ -536,13 +553,13 @@ async function main(): Promise<void> {
 			if (onboarding) {
 				await markOnboardingComplete(prisma, workspace);
 				await seedChannelIntros(prisma, workspace.id, eventLogger);
+				await seedBuiltinSkills(prisma, workspace.id, eventLogger);
 			}
 
 			if (!result.messageSent) {
 				await sendResponse(say, result.responseText, threadTs);
 			}
 			await removeReaction(client, event.channel, event.ts, "hourglass_flowing_sand");
-			await addReaction(client, event.channel, event.ts, "white_check_mark");
 		} catch (error) {
 			await removeReaction(client, event.channel, event.ts, "hourglass_flowing_sand");
 			if (error instanceof ThreadLockedError) {

@@ -2,12 +2,13 @@ import type { PrismaClient } from "@openviktor/db";
 import { ConcurrencyExceededError, ThreadLockedError, ThreadPhase } from "@openviktor/shared";
 import type {
 	ContentBlock,
+	LLMMessage,
+	LLMResponse,
 	LLMToolDefinition,
 	Logger,
 	ToolUseBlock,
 	TriggerType,
 } from "@openviktor/shared";
-import type { LLMMessage } from "@openviktor/shared";
 import {
 	PERMISSION_POLL_INTERVAL_MS,
 	PERMISSION_TIMEOUT_MS,
@@ -30,6 +31,7 @@ import {
 } from "./context.js";
 import { type ChatOptions, type LLMGateway, extractText } from "./gateway.js";
 import { type PromptContext, buildSystemPrompt } from "./prompt.js";
+import { isContextOverflow } from "./retry.js";
 
 const MAX_TOOL_ROUNDS = 20;
 
@@ -38,6 +40,16 @@ const SEND_TOOL_NAMES = new Set([
 	"send_message_to_thread",
 	"create_thread",
 ]);
+
+const MAX_TOOL_OUTPUT_CHARS = 50_000;
+
+function truncateToolOutput(output: string): string {
+	if (output.length <= MAX_TOOL_OUTPUT_CHARS) return output;
+	const headChars = Math.floor(MAX_TOOL_OUTPUT_CHARS * 0.7);
+	const tailChars = MAX_TOOL_OUTPUT_CHARS - headChars;
+	const removed = output.length - headChars - tailChars;
+	return `${output.slice(0, headChars)}\n\n[... output truncated: ${removed} characters removed ...]\n\n${output.slice(-tailChars)}`;
+}
 
 export interface SlackPoster {
 	postMessage(
@@ -162,7 +174,7 @@ export class AgentRunner {
 					slackThreadTs: trigger.slackThreadTs,
 				},
 			},
-			update: { status: "ACTIVE", phase: ThreadPhase.TRIGGER },
+			update: { status: "ACTIVE" },
 			create: {
 				workspaceId: trigger.workspaceId,
 				slackChannel: trigger.slackChannel,
@@ -171,6 +183,13 @@ export class AgentRunner {
 				phase: ThreadPhase.TRIGGER,
 			},
 		});
+
+		// Transition to TRIGGER only if IDLE (existing thread from prior conversation).
+		// New threads are already created with phase=TRIGGER.
+		// Skip if another run is active (phase is not IDLE) to avoid corrupting its state.
+		if ((thread.phase as number) === ThreadPhase.IDLE) {
+			await transitionPhase(this.prisma, thread.id, ThreadPhase.TRIGGER);
+		}
 
 		await this.ensureThreadNotLocked(thread.id);
 
@@ -456,6 +475,46 @@ export class AgentRunner {
 		return undefined;
 	}
 
+	private async chatWithRecovery(
+		messages: LLMMessage[],
+		options: ChatOptions | undefined,
+		agentRunId: string,
+		round: number,
+	): Promise<LLMResponse | null> {
+		try {
+			return await this.llm.chat(messages, options);
+		} catch (error) {
+			if (!isContextOverflow(error)) throw error;
+
+			this.logger.warn(
+				{ agentRunId, round },
+				"Context window exceeded, compressing older tool results",
+			);
+			this.compressToolResults(messages);
+
+			try {
+				return await this.llm.chat(messages, options);
+			} catch (retryError) {
+				if (!isContextOverflow(retryError)) throw retryError;
+				this.logger.warn({ agentRunId }, "Context still too large after compression");
+				return null;
+			}
+		}
+	}
+
+	private compressToolResults(messages: LLMMessage[]): void {
+		const preserveFrom = messages.length - 2;
+		for (let i = 0; i < preserveFrom; i++) {
+			const msg = messages[i];
+			if (msg.role !== "user" || typeof msg.content === "string") continue;
+			for (const block of msg.content) {
+				if (block.type === "tool_result" && block.content.length > 500) {
+					block.content = `${block.content.slice(0, 200)}\n[... truncated to reduce context size ...]`;
+				}
+			}
+		}
+	}
+
 	private mergeHotLoadedTools(
 		activeTools: LLMToolDefinition[],
 		loadedSkills: Set<string>,
@@ -492,10 +551,23 @@ export class AgentRunner {
 		const loadedSkills = new Set<string>();
 
 		for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-			const response = await this.llm.chat(
+			const response = await this.chatWithRecovery(
 				messages,
 				this.buildChatOptions(activeTools, modelOverride),
+				agentRunId,
+				round,
 			);
+
+			if (!response) {
+				return {
+					responseText:
+						"I hit the context limit while working on your request. Please send a follow-up message so I can continue with a fresh context.",
+					messageSent,
+					inputTokens: totalInputTokens,
+					outputTokens: totalOutputTokens,
+					costCents: totalCostCents,
+				};
+			}
 
 			totalInputTokens += response.inputTokens;
 			totalOutputTokens += response.outputTokens;
@@ -710,8 +782,9 @@ export class AgentRunner {
 			};
 		}
 
-		const outputStr =
-			typeof reResult.output === "string" ? reResult.output : JSON.stringify(reResult.output);
+		const outputStr = truncateToolOutput(
+			typeof reResult.output === "string" ? reResult.output : JSON.stringify(reResult.output),
+		);
 		const rawOutput =
 			typeof reResult.output === "object" && reResult.output !== null
 				? (reResult.output as Record<string, unknown>)
@@ -878,7 +951,13 @@ export class AgentRunner {
 
 		if (result.error) {
 			this.logger.warn(
-				{ tool: toolUse.name, agentRunId, error: result.error, durationMs: result.durationMs },
+				{
+					tool: toolUse.name,
+					agentRunId,
+					error: result.error,
+					durationMs: result.durationMs,
+					args: toolUse.input,
+				},
 				"Tool gateway call failed",
 			);
 			return {
@@ -896,8 +975,9 @@ export class AgentRunner {
 			{ tool: toolUse.name, agentRunId, durationMs: result.durationMs },
 			"Tool gateway call completed",
 		);
-		const outputStr =
-			typeof result.output === "string" ? result.output : JSON.stringify(result.output);
+		const outputStr = truncateToolOutput(
+			typeof result.output === "string" ? result.output : JSON.stringify(result.output),
+		);
 		const rawOutput =
 			typeof result.output === "object" && result.output !== null
 				? (result.output as Record<string, unknown>)

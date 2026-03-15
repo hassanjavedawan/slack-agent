@@ -15,6 +15,7 @@ import {
 	markOnboardingComplete,
 	seedChannelIntros,
 } from "../cron/onboarding.js";
+import { seedBuiltinSkills } from "../skills/seed.js";
 import { fetchActiveThreads } from "../thread/index.js";
 import { registerWorkspaceToken } from "../tool-gateway/server.js";
 import { type SlackClient, resolveMember, resolveWorkspace, stripBotMention } from "./resolve.js";
@@ -158,6 +159,7 @@ async function handleMessage(
 				workspaceName: workspace.slackTeamName,
 				channel: msg.channel,
 				slackThreadTs: threadTs,
+				userMessageTs: msg.ts,
 				triggerType,
 				userName: member.displayName ?? undefined,
 				skillCatalog,
@@ -170,13 +172,13 @@ async function handleMessage(
 		if (onboarding) {
 			await markOnboardingComplete(ctx.prisma, workspace);
 			await seedChannelIntros(ctx.prisma, workspace.id, ctx.logger);
+			await seedBuiltinSkills(ctx.prisma, workspace.id, ctx.logger);
 		}
 
 		if (!result.messageSent) {
 			await sendResponse(say, result.responseText, threadTs);
 		}
 		await removeReaction(slackClient, msg.channel, msg.ts, "hourglass_flowing_sand", ctx.logger);
-		await addReaction(slackClient, msg.channel, msg.ts, "white_check_mark", ctx.logger);
 	} catch (error) {
 		await removeReaction(slackClient, msg.channel, msg.ts, "hourglass_flowing_sand", ctx.logger);
 		if (error instanceof ThreadLockedError) {
@@ -341,6 +343,7 @@ async function handleMention(
 				workspaceName: workspace.slackTeamName,
 				channel: event.channel,
 				slackThreadTs: threadTs,
+				userMessageTs: event.ts,
 				triggerType,
 				userName: member.displayName ?? undefined,
 				skillCatalog,
@@ -353,6 +356,7 @@ async function handleMention(
 		if (onboarding) {
 			await markOnboardingComplete(ctx.prisma, workspace);
 			await seedChannelIntros(ctx.prisma, workspace.id, ctx.logger);
+			await seedBuiltinSkills(ctx.prisma, workspace.id, ctx.logger);
 		}
 
 		if (!result.messageSent) {
@@ -365,7 +369,6 @@ async function handleMention(
 			"hourglass_flowing_sand",
 			ctx.logger,
 		);
-		await addReaction(slackClient, event.channel, event.ts, "white_check_mark", ctx.logger);
 	} catch (error) {
 		await removeReaction(
 			slackClient,

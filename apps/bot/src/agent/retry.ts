@@ -87,6 +87,16 @@ export async function withRetry<T>(fn: () => Promise<T>, options: RetryOptions =
 	throw lastError;
 }
 
+export function isContextOverflow(error: unknown): boolean {
+	if (error instanceof LLMError) {
+		return error.message.includes("prompt is too long");
+	}
+	if (error instanceof Error) {
+		return error.message.includes("prompt is too long");
+	}
+	return false;
+}
+
 export function mapProviderError(error: unknown): LLMError {
 	if (error instanceof LLMError) return error;
 
