@@ -177,7 +177,6 @@ async function handleMessage(
 			await sendResponse(say, result.responseText, threadTs);
 		}
 		await removeReaction(slackClient, msg.channel, msg.ts, "hourglass_flowing_sand", ctx.logger);
-		await addReaction(slackClient, msg.channel, msg.ts, "white_check_mark", ctx.logger);
 	} catch (error) {
 		await removeReaction(slackClient, msg.channel, msg.ts, "hourglass_flowing_sand", ctx.logger);
 		if (error instanceof ThreadLockedError) {
@@ -367,7 +366,6 @@ async function handleMention(
 			"hourglass_flowing_sand",
 			ctx.logger,
 		);
-		await addReaction(slackClient, event.channel, event.ts, "white_check_mark", ctx.logger);
 	} catch (error) {
 		await removeReaction(
 			slackClient,
