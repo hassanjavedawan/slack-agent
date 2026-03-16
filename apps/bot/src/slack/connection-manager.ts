@@ -284,9 +284,7 @@ export class ConnectionManager {
 					{ workspaceId: workspace.id },
 					"ENCRYPTION_KEY required in managed mode to decrypt bot tokens",
 				);
-				throw new Error(
-					`ENCRYPTION_KEY is required in managed mode (workspace ${workspace.id})`,
-				);
+				throw new Error(`ENCRYPTION_KEY is required in managed mode (workspace ${workspace.id})`);
 			}
 
 			let botToken = workspace.slackBotToken;
