@@ -17,8 +17,12 @@ export function LoginPage() {
 		try {
 			await login(username, password);
 			navigate("/");
-		} catch {
-			setError("Invalid credentials");
+		} catch (err) {
+			if (err instanceof Error && err.message.includes("401")) {
+				setError("Invalid credentials");
+			} else {
+				setError("Login failed. Please try again.");
+			}
 		} finally {
 			setLoading(false);
 		}

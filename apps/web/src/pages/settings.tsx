@@ -12,7 +12,7 @@ const MODELS = [
 
 export function SettingsPage() {
 	const queryClient = useQueryClient();
-	const { data, isLoading } = useQuery({
+	const { data, isLoading, error } = useQuery({
 		queryKey: ["settings"],
 		queryFn: getSettings,
 	});
@@ -22,6 +22,7 @@ export function SettingsPage() {
 	const mutation = useMutation({
 		mutationFn: (model: string) => updateModel(model),
 		onSuccess: () => queryClient.invalidateQueries({ queryKey: ["settings"] }),
+		onError: () => setSelectedModel(null),
 	});
 
 	const currentModel = selectedModel ?? data?.defaultModel ?? "";
@@ -31,6 +32,14 @@ export function SettingsPage() {
 			<div className="space-y-6">
 				<div className="h-8 w-32 animate-pulse rounded bg-slate-200" />
 				<div className="h-48 animate-pulse rounded-xl border border-slate-200 bg-white" />
+			</div>
+		);
+	}
+
+	if (error) {
+		return (
+			<div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+				Failed to load settings: {(error as Error).message}
 			</div>
 		);
 	}

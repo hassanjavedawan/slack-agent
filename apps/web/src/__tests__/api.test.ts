@@ -70,6 +70,21 @@ describe("API client", () => {
 		// The thrown error should be detectable as auth error
 	});
 
+	it("identifies AuthError with isAuthError", async () => {
+		mockFetch.mockResolvedValueOnce({
+			ok: false,
+			status: 401,
+			statusText: "Unauthorized",
+			json: () => Promise.resolve({ error: "Unauthorized" }),
+			text: () => Promise.resolve("Unauthorized"),
+		});
+		try {
+			await api.getOverview();
+		} catch (e) {
+			expect(api.isAuthError(e)).toBe(true);
+		}
+	});
+
 	it("builds query params for getRuns", async () => {
 		mockJsonResponse({ data: [], total: 0, page: 1, limit: 25 });
 		await api.getRuns({ page: 2, status: "COMPLETED", triggerType: "DM" });

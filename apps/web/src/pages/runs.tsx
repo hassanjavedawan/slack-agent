@@ -91,6 +91,7 @@ export function RunsPage() {
 								{data.data.map((run) => (
 									<tr
 										key={run.id}
+										tabIndex={0}
 										className="cursor-pointer border-b border-slate-50 transition-colors hover:bg-slate-50"
 										onClick={() => navigate(`/runs/${run.id}`)}
 										onKeyDown={(e) => e.key === "Enter" && navigate(`/runs/${run.id}`)}

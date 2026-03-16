@@ -9,7 +9,7 @@ import { getToolsStats } from "../lib/api";
 import { formatDuration } from "../lib/utils";
 
 export function ToolsPage() {
-	const { data, isLoading } = useQuery({
+	const { data, isLoading, error } = useQuery({
 		queryKey: ["tools-stats"],
 		queryFn: getToolsStats,
 	});
@@ -26,6 +26,14 @@ export function ToolsPage() {
 						/>
 					))}
 				</div>
+			</div>
+		);
+	}
+
+	if (error) {
+		return (
+			<div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+				Failed to load tools: {(error as Error).message}
 			</div>
 		);
 	}

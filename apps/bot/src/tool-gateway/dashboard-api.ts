@@ -17,6 +17,18 @@ interface DashboardApiDeps {
 }
 
 const SCHEDULED_TRIGGER_TYPES = ["CRON", "HEARTBEAT", "DISCOVERY"];
+const VALID_RUN_STATUSES = ["QUEUED", "RUNNING", "COMPLETED", "FAILED", "CANCELLED"];
+const VALID_TRIGGER_TYPES = [
+	"MENTION",
+	"DM",
+	"CRON",
+	"HEARTBEAT",
+	"DISCOVERY",
+	"ONBOARDING",
+	"MANUAL",
+	"SPAWN",
+];
+const VALID_THREAD_STATUSES = ["ACTIVE", "WAITING", "COMPLETED", "STALE"];
 
 function formatCost(cents: number): string {
 	return `$${(cents / 100).toFixed(2)}`;
@@ -480,8 +492,8 @@ export function createDashboardApi(deps: DashboardApiDeps) {
 		const model = url.searchParams.get("model");
 
 		const where: Record<string, unknown> = { workspaceId: workspace.id };
-		if (status) where.status = status;
-		if (triggerType) where.triggerType = triggerType;
+		if (status && VALID_RUN_STATUSES.includes(status)) where.status = status;
+		if (triggerType && VALID_TRIGGER_TYPES.includes(triggerType)) where.triggerType = triggerType;
 		if (model) where.model = model;
 
 		const [data, total] = await Promise.all([
@@ -594,7 +606,7 @@ export function createDashboardApi(deps: DashboardApiDeps) {
 		const status = url.searchParams.get("status");
 
 		const where: Record<string, unknown> = { workspaceId: workspace.id };
-		if (status) where.status = status;
+		if (status && VALID_THREAD_STATUSES.includes(status)) where.status = status;
 
 		const [data, total] = await Promise.all([
 			prisma.thread.findMany({
@@ -635,7 +647,10 @@ export function createDashboardApi(deps: DashboardApiDeps) {
 	async function handleToolsStats(workspaceId: string | null): Promise<Response> {
 		const workspace = await getWorkspace(workspaceId);
 		const toolCalls = await prisma.toolCall.findMany({
-			where: { agentRun: { workspaceId: workspace.id } },
+			where: {
+				agentRun: { workspaceId: workspace.id },
+				createdAt: { gte: new Date(Date.now() - 90 * 86_400_000) },
+			},
 			select: {
 				toolName: true,
 				status: true,

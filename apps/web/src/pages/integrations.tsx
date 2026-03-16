@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { Badge } from "../components/ui/badge";
 import { Card } from "../components/ui/card";
 import { EmptyState } from "../components/ui/empty-state";
@@ -11,16 +12,23 @@ export function IntegrationsPage() {
 		queryFn: getIntegrations,
 	});
 
+	const [mutError, setMutError] = useState<string | null>(null);
+
 	const connect = useMutation({
 		mutationFn: (slug: string) => connectIntegration(slug),
 		onSuccess: (result) => {
 			window.open(result.connectUrl, "_blank");
 		},
+		onError: () => setMutError("Failed to connect integration"),
 	});
 
 	const disconnect = useMutation({
 		mutationFn: (slug: string) => disconnectIntegration(slug),
-		onSuccess: () => queryClient.invalidateQueries({ queryKey: ["integrations"] }),
+		onSuccess: () => {
+			setMutError(null);
+			queryClient.invalidateQueries({ queryKey: ["integrations"] });
+		},
+		onError: () => setMutError("Failed to disconnect integration"),
 	});
 
 	if (isLoading) {
@@ -52,6 +60,12 @@ export function IntegrationsPage() {
 	return (
 		<div className="space-y-6">
 			<h1 className="text-2xl font-bold text-slate-900">Integrations</h1>
+
+			{mutError && (
+				<div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+					{mutError}
+				</div>
+			)}
 
 			{data.apps.length === 0 ? (
 				<Card>

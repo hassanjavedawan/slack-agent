@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Badge } from "../components/ui/badge";
 import { Card } from "../components/ui/card";
 import { EmptyState } from "../components/ui/empty-state";
@@ -54,10 +54,16 @@ function TabButton({
 function LearningsTab() {
 	const [page, setPage] = useState(1);
 	const [search, setSearch] = useState("");
+	const [debouncedSearch, setDebouncedSearch] = useState("");
+
+	useEffect(() => {
+		const timer = setTimeout(() => setDebouncedSearch(search), 300);
+		return () => clearTimeout(timer);
+	}, [search]);
 
 	const { data, isLoading } = useQuery({
-		queryKey: ["learnings", page, search],
-		queryFn: () => getLearnings({ page, limit: 20, search }),
+		queryKey: ["learnings", page, debouncedSearch],
+		queryFn: () => getLearnings({ page, limit: 20, search: debouncedSearch }),
 	});
 
 	const totalPages = data ? Math.ceil(data.total / data.limit) : 0;

@@ -36,6 +36,7 @@ export function TeamPage() {
 			<div className="flex items-center gap-3">
 				<Link
 					to="/settings"
+					aria-label="Back to settings"
 					className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
 				>
 					<ArrowLeft className="h-5 w-5" />
