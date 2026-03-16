@@ -378,6 +378,407 @@ export function createDashboardApi(deps: DashboardApiDeps) {
 		return Response.json({ success: true });
 	}
 
+	async function handleOverview(workspaceId: string | null): Promise<Response> {
+		const workspace = await getWorkspace(workspaceId);
+		const thirtyDaysAgo = new Date(Date.now() - 30 * 86_400_000);
+
+		const [allRuns, activeThreads] = await Promise.all([
+			prisma.agentRun.findMany({
+				where: { workspaceId: workspace.id, createdAt: { gte: thirtyDaysAgo } },
+				select: {
+					id: true,
+					status: true,
+					model: true,
+					triggerType: true,
+					costCents: true,
+					inputTokens: true,
+					outputTokens: true,
+					durationMs: true,
+					createdAt: true,
+					member: { select: { displayName: true } },
+				},
+				orderBy: { createdAt: "desc" },
+			}),
+			prisma.thread.count({
+				where: { workspaceId: workspace.id, status: "ACTIVE" },
+			}),
+		]);
+
+		const totalRuns = allRuns.length;
+		const completedRuns = allRuns.filter((r) => r.status === "COMPLETED").length;
+		const totalCost = allRuns.reduce((sum, r) => sum + r.costCents, 0);
+		const successRate = totalRuns > 0 ? completedRuns / totalRuns : 0;
+
+		// Daily chart data
+		const runsByDayMap = new Map<string, { runs: number; cost: number }>();
+		for (const run of allRuns) {
+			const day = run.createdAt.toISOString().slice(0, 10);
+			const entry = runsByDayMap.get(day) ?? { runs: 0, cost: 0 };
+			entry.runs++;
+			entry.cost += run.costCents;
+			runsByDayMap.set(day, entry);
+		}
+		const runsByDay = Array.from(runsByDayMap.entries())
+			.map(([date, v]) => ({ date, runs: v.runs, cost: v.cost }))
+			.sort((a, b) => a.date.localeCompare(b.date));
+
+		// Cost by model
+		const costByModelMap = new Map<string, { cost: number; count: number }>();
+		for (const run of allRuns) {
+			const entry = costByModelMap.get(run.model) ?? { cost: 0, count: 0 };
+			entry.cost += run.costCents;
+			entry.count++;
+			costByModelMap.set(run.model, entry);
+		}
+		const costByModel = Array.from(costByModelMap.entries())
+			.map(([model, v]) => ({ model, cost: v.cost, count: v.count }))
+			.sort((a, b) => b.cost - a.cost);
+
+		// Trigger breakdown
+		const runsByTriggerMap = new Map<string, number>();
+		for (const run of allRuns) {
+			runsByTriggerMap.set(run.triggerType, (runsByTriggerMap.get(run.triggerType) ?? 0) + 1);
+		}
+		const runsByTrigger = Array.from(runsByTriggerMap.entries())
+			.map(([trigger, count]) => ({ trigger, count }))
+			.sort((a, b) => b.count - a.count);
+
+		// Recent runs
+		const recentRuns = allRuns.slice(0, 10).map((r) => ({
+			id: r.id,
+			status: r.status,
+			model: r.model,
+			triggerType: r.triggerType,
+			costCents: r.costCents,
+			inputTokens: r.inputTokens,
+			outputTokens: r.outputTokens,
+			durationMs: r.durationMs,
+			createdAt: r.createdAt.toISOString(),
+			triggeredByName: r.member?.displayName ?? null,
+		}));
+
+		return Response.json({
+			stats: {
+				totalRuns,
+				totalCost,
+				successRate: Math.round(successRate * 1000) / 10,
+				activeThreads,
+			},
+			runsByDay,
+			costByModel,
+			runsByTrigger,
+			recentRuns,
+		});
+	}
+
+	async function handleRuns(url: URL, workspaceId: string | null): Promise<Response> {
+		const workspace = await getWorkspace(workspaceId);
+		const page = Math.max(1, Number(url.searchParams.get("page")) || 1);
+		const limit = Math.min(100, Math.max(1, Number(url.searchParams.get("limit")) || 25));
+		const status = url.searchParams.get("status");
+		const triggerType = url.searchParams.get("triggerType");
+		const model = url.searchParams.get("model");
+
+		const where: Record<string, unknown> = { workspaceId: workspace.id };
+		if (status) where.status = status;
+		if (triggerType) where.triggerType = triggerType;
+		if (model) where.model = model;
+
+		const [data, total] = await Promise.all([
+			prisma.agentRun.findMany({
+				where,
+				orderBy: { createdAt: "desc" },
+				skip: (page - 1) * limit,
+				take: limit,
+				select: {
+					id: true,
+					status: true,
+					model: true,
+					triggerType: true,
+					costCents: true,
+					inputTokens: true,
+					outputTokens: true,
+					durationMs: true,
+					errorMessage: true,
+					createdAt: true,
+					completedAt: true,
+					member: { select: { displayName: true } },
+				},
+			}),
+			prisma.agentRun.count({ where }),
+		]);
+
+		const runs = data.map((r) => ({
+			id: r.id,
+			status: r.status,
+			model: r.model,
+			triggerType: r.triggerType,
+			costCents: r.costCents,
+			inputTokens: r.inputTokens,
+			outputTokens: r.outputTokens,
+			durationMs: r.durationMs,
+			errorMessage: r.errorMessage,
+			createdAt: r.createdAt.toISOString(),
+			completedAt: r.completedAt?.toISOString() ?? null,
+			triggeredByName: r.member?.displayName ?? null,
+		}));
+
+		return Response.json({ data: runs, total, page, limit });
+	}
+
+	async function handleRunDetail(runId: string, workspaceId: string | null): Promise<Response> {
+		const workspace = await getWorkspace(workspaceId);
+		const run = await prisma.agentRun.findFirst({
+			where: { id: runId, workspaceId: workspace.id },
+			include: {
+				messages: { orderBy: { createdAt: "asc" } },
+				toolCalls: { orderBy: { createdAt: "asc" } },
+				thread: true,
+				member: { select: { displayName: true, slackUserId: true } },
+			},
+		});
+
+		if (!run) {
+			return Response.json({ error: "Run not found" }, { status: 404 });
+		}
+
+		return Response.json({
+			id: run.id,
+			status: run.status,
+			model: run.model,
+			triggerType: run.triggerType,
+			costCents: run.costCents,
+			inputTokens: run.inputTokens,
+			outputTokens: run.outputTokens,
+			durationMs: run.durationMs,
+			errorMessage: run.errorMessage,
+			createdAt: run.createdAt.toISOString(),
+			startedAt: run.startedAt?.toISOString() ?? null,
+			completedAt: run.completedAt?.toISOString() ?? null,
+			member: run.member
+				? { displayName: run.member.displayName, slackUserId: run.member.slackUserId }
+				: null,
+			thread: run.thread
+				? {
+						id: run.thread.id,
+						title: run.thread.title,
+						slackChannel: run.thread.slackChannel,
+						status: run.thread.status,
+					}
+				: null,
+			messages: run.messages.map((m) => ({
+				id: m.id,
+				role: m.role,
+				content: m.content,
+				tokenCount: m.tokenCount,
+				createdAt: m.createdAt.toISOString(),
+			})),
+			toolCalls: run.toolCalls.map((tc) => ({
+				id: tc.id,
+				toolName: tc.toolName,
+				toolType: tc.toolType,
+				input: tc.input,
+				output: tc.output,
+				status: tc.status,
+				durationMs: tc.durationMs,
+				errorMessage: tc.errorMessage,
+				createdAt: tc.createdAt.toISOString(),
+			})),
+		});
+	}
+
+	async function handleThreads(url: URL, workspaceId: string | null): Promise<Response> {
+		const workspace = await getWorkspace(workspaceId);
+		const page = Math.max(1, Number(url.searchParams.get("page")) || 1);
+		const limit = Math.min(100, Math.max(1, Number(url.searchParams.get("limit")) || 25));
+		const status = url.searchParams.get("status");
+
+		const where: Record<string, unknown> = { workspaceId: workspace.id };
+		if (status) where.status = status;
+
+		const [data, total] = await Promise.all([
+			prisma.thread.findMany({
+				where,
+				orderBy: { updatedAt: "desc" },
+				skip: (page - 1) * limit,
+				take: limit,
+				select: {
+					id: true,
+					title: true,
+					slackChannel: true,
+					slackThreadTs: true,
+					status: true,
+					phase: true,
+					createdAt: true,
+					updatedAt: true,
+					_count: { select: { agentRuns: true } },
+				},
+			}),
+			prisma.thread.count({ where }),
+		]);
+
+		const threads = data.map((t) => ({
+			id: t.id,
+			title: t.title,
+			slackChannel: t.slackChannel,
+			slackThreadTs: t.slackThreadTs,
+			status: t.status,
+			phase: t.phase,
+			runCount: t._count.agentRuns,
+			createdAt: t.createdAt.toISOString(),
+			updatedAt: t.updatedAt.toISOString(),
+		}));
+
+		return Response.json({ data: threads, total, page, limit });
+	}
+
+	async function handleToolsStats(workspaceId: string | null): Promise<Response> {
+		const workspace = await getWorkspace(workspaceId);
+		const toolCalls = await prisma.toolCall.findMany({
+			where: { agentRun: { workspaceId: workspace.id } },
+			select: {
+				toolName: true,
+				status: true,
+				durationMs: true,
+				createdAt: true,
+			},
+		});
+
+		const statsMap = new Map<
+			string,
+			{
+				totalCalls: number;
+				successCount: number;
+				failedCount: number;
+				totalDurationMs: number;
+				durCount: number;
+				lastUsed: Date;
+			}
+		>();
+
+		for (const tc of toolCalls) {
+			const entry = statsMap.get(tc.toolName) ?? {
+				totalCalls: 0,
+				successCount: 0,
+				failedCount: 0,
+				totalDurationMs: 0,
+				durCount: 0,
+				lastUsed: tc.createdAt,
+			};
+			entry.totalCalls++;
+			if (tc.status === "COMPLETED") entry.successCount++;
+			if (tc.status === "FAILED") entry.failedCount++;
+			if (tc.durationMs != null) {
+				entry.totalDurationMs += tc.durationMs;
+				entry.durCount++;
+			}
+			if (tc.createdAt > entry.lastUsed) entry.lastUsed = tc.createdAt;
+			statsMap.set(tc.toolName, entry);
+		}
+
+		const stats = Array.from(statsMap.entries())
+			.map(([toolName, s]) => ({
+				toolName,
+				totalCalls: s.totalCalls,
+				successCount: s.successCount,
+				failedCount: s.failedCount,
+				avgDurationMs: s.durCount > 0 ? Math.round(s.totalDurationMs / s.durCount) : null,
+				lastUsed: s.lastUsed.toISOString(),
+			}))
+			.sort((a, b) => b.totalCalls - a.totalCalls);
+
+		const totalCalls = toolCalls.length;
+		const successTotal = toolCalls.filter((tc) => tc.status === "COMPLETED").length;
+		const overallSuccessRate =
+			totalCalls > 0 ? Math.round((successTotal / totalCalls) * 1000) / 10 : 0;
+
+		return Response.json({ stats, totalCalls, overallSuccessRate });
+	}
+
+	async function handleLearnings(url: URL, workspaceId: string | null): Promise<Response> {
+		const workspace = await getWorkspace(workspaceId);
+		const page = Math.max(1, Number(url.searchParams.get("page")) || 1);
+		const limit = Math.min(100, Math.max(1, Number(url.searchParams.get("limit")) || 25));
+		const search = url.searchParams.get("search");
+
+		const where: Record<string, unknown> = { workspaceId: workspace.id };
+		if (search) {
+			where.OR = [
+				{ content: { contains: search, mode: "insensitive" } },
+				{ source: { contains: search, mode: "insensitive" } },
+				{ category: { contains: search, mode: "insensitive" } },
+			];
+		}
+
+		const [data, total] = await Promise.all([
+			prisma.learning.findMany({
+				where,
+				orderBy: { createdAt: "desc" },
+				skip: (page - 1) * limit,
+				take: limit,
+				select: {
+					id: true,
+					content: true,
+					source: true,
+					category: true,
+					createdAt: true,
+				},
+			}),
+			prisma.learning.count({ where }),
+		]);
+
+		const learnings = data.map((l) => ({
+			id: l.id,
+			content: l.content,
+			source: l.source,
+			category: l.category,
+			createdAt: l.createdAt.toISOString(),
+		}));
+
+		return Response.json({ data: learnings, total, page, limit });
+	}
+
+	async function handleSkills(url: URL, workspaceId: string | null): Promise<Response> {
+		const workspace = await getWorkspace(workspaceId);
+		const page = Math.max(1, Number(url.searchParams.get("page")) || 1);
+		const limit = Math.min(100, Math.max(1, Number(url.searchParams.get("limit")) || 25));
+
+		const where = { workspaceId: workspace.id };
+
+		const [data, total] = await Promise.all([
+			prisma.skill.findMany({
+				where,
+				orderBy: { updatedAt: "desc" },
+				skip: (page - 1) * limit,
+				take: limit,
+				select: {
+					id: true,
+					name: true,
+					content: true,
+					description: true,
+					category: true,
+					version: true,
+					createdAt: true,
+					updatedAt: true,
+				},
+			}),
+			prisma.skill.count({ where }),
+		]);
+
+		const skills = data.map((s) => ({
+			id: s.id,
+			name: s.name,
+			content: s.content,
+			description: s.description,
+			category: s.category,
+			version: s.version,
+			createdAt: s.createdAt.toISOString(),
+			updatedAt: s.updatedAt.toISOString(),
+		}));
+
+		return Response.json({ data: skills, total, page, limit });
+	}
+
 	async function handleHealth(): Promise<Response> {
 		let dbOk = false;
 		try {
@@ -436,6 +837,23 @@ export function createDashboardApi(deps: DashboardApiDeps) {
 					return await handleGetSettings(workspaceId);
 				if (req.method === "PUT" && pathname === "/api/settings/model")
 					return await handleUpdateModel(req, workspaceId);
+
+				const runsIdMatch = pathname.match(/^\/api\/runs\/([^/]+)$/);
+
+				if (req.method === "GET" && pathname === "/api/overview")
+					return await handleOverview(workspaceId);
+				if (req.method === "GET" && pathname === "/api/runs" && !runsIdMatch)
+					return await handleRuns(url, workspaceId);
+				if (req.method === "GET" && runsIdMatch)
+					return await handleRunDetail(decodeURIComponent(runsIdMatch[1]), workspaceId);
+				if (req.method === "GET" && pathname === "/api/threads")
+					return await handleThreads(url, workspaceId);
+				if (req.method === "GET" && pathname === "/api/tools/stats")
+					return await handleToolsStats(workspaceId);
+				if (req.method === "GET" && pathname === "/api/learnings")
+					return await handleLearnings(url, workspaceId);
+				if (req.method === "GET" && pathname === "/api/skills")
+					return await handleSkills(url, workspaceId);
 
 				return Response.json({ error: "Not found" }, { status: 404 });
 			} catch (err) {
