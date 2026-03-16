@@ -15,13 +15,15 @@ RUN bun install --frozen-lockfile
 FROM base AS dev
 RUN apt-get update && apt-get install -y --no-install-recommends ripgrep && rm -rf /var/lib/apt/lists/*
 COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/packages/db/node_modules ./packages/db/node_modules
 COPY . .
-RUN ./node_modules/.bin/prisma generate --schema=packages/db/prisma/schema.prisma
+RUN bun --bun run --cwd packages/db db:generate
 CMD ["sh", "-c", "bun install && bun run --cwd packages/db db:generate && bun run --filter @openviktor/db db:migrate:deploy && bun --watch run apps/bot/src/index.ts"]
 
 FROM base AS runner
 RUN apt-get update && apt-get install -y --no-install-recommends ripgrep && rm -rf /var/lib/apt/lists/*
 COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/packages/db/node_modules ./packages/db/node_modules
 COPY . .
-RUN ./node_modules/.bin/prisma generate --schema=packages/db/prisma/schema.prisma
+RUN bun --bun run --cwd packages/db db:generate
 CMD ["sh", "-c", "bun run --filter @openviktor/db db:migrate:deploy && bun run apps/bot/src/index.ts"]
