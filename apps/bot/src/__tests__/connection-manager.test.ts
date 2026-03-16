@@ -1,3 +1,4 @@
+import { encrypt } from "@openviktor/shared";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	ConnectionManager,
@@ -26,6 +27,8 @@ const mockPrisma = {
 	},
 } as never;
 
+const ENCRYPTION_KEY = "a".repeat(64);
+
 const baseManagedConfig = {
 	DEPLOYMENT_MODE: "managed" as const,
 	SLACK_SIGNING_SECRET: "test-secret",
@@ -33,7 +36,7 @@ const baseManagedConfig = {
 	SLACK_CLIENT_SECRET: "client-secret",
 	SLACK_STATE_SECRET: "state-secret",
 	BASE_URL: "https://app.example.com",
-	ENCRYPTION_KEY: "a".repeat(64),
+	ENCRYPTION_KEY,
 	ANTHROPIC_API_KEY: "sk-ant-test",
 	DATABASE_URL: "postgresql://localhost/test",
 	NODE_ENV: "test" as const,
@@ -73,7 +76,7 @@ describe("ConnectionManager", () => {
 		const workspace = {
 			id: "ws-1",
 			slackTeamId: "T123",
-			slackBotToken: "xoxb-test",
+			slackBotToken: encrypt("xoxb-test", ENCRYPTION_KEY),
 			slackBotUserId: "U123",
 		};
 
@@ -83,6 +86,58 @@ describe("ConnectionManager", () => {
 		expect(conn.workspaceId).toBe("ws-1");
 		expect(conn.teamId).toBe("T123");
 		expect(manager.connectedCount).toBe(1);
+	});
+
+	it("decrypts bot token in managed mode before creating WebClient", async () => {
+		const manager = new ConnectionManager({
+			config: baseManagedConfig,
+			prisma: mockPrisma,
+			logger: mockLogger,
+			onEvent,
+			onInteraction,
+		});
+
+		const plaintextToken = "xoxb-decryption-test";
+		const encryptedToken = encrypt(plaintextToken, ENCRYPTION_KEY);
+
+		const conn = await manager.connect({
+			id: "ws-1",
+			slackTeamId: "T123",
+			slackBotToken: encryptedToken,
+			slackBotUserId: "U123",
+		});
+
+		expect(conn.getClient().token).toBe(plaintextToken);
+	});
+
+	it("connects multiple workspaces with different encrypted tokens", async () => {
+		const manager = new ConnectionManager({
+			config: baseManagedConfig,
+			prisma: mockPrisma,
+			logger: mockLogger,
+			onEvent,
+			onInteraction,
+		});
+
+		const token1 = "xoxb-workspace-one";
+		const token2 = "xoxb-workspace-two";
+
+		await manager.connect({
+			id: "ws-1",
+			slackTeamId: "T1",
+			slackBotToken: encrypt(token1, ENCRYPTION_KEY),
+			slackBotUserId: "U1",
+		});
+		await manager.connect({
+			id: "ws-2",
+			slackTeamId: "T2",
+			slackBotToken: encrypt(token2, ENCRYPTION_KEY),
+			slackBotUserId: "U2",
+		});
+
+		expect(manager.connectedCount).toBe(2);
+		expect(manager.getConnection("ws-1")?.getClient().token).toBe(token1);
+		expect(manager.getConnection("ws-2")?.getClient().token).toBe(token2);
 	});
 
 	it("looks up connection by team ID", async () => {
@@ -97,7 +152,7 @@ describe("ConnectionManager", () => {
 		await manager.connect({
 			id: "ws-1",
 			slackTeamId: "T123",
-			slackBotToken: "xoxb-test",
+			slackBotToken: encrypt("xoxb-test", ENCRYPTION_KEY),
 			slackBotUserId: "U123",
 		});
 
@@ -120,7 +175,7 @@ describe("ConnectionManager", () => {
 		await manager.connect({
 			id: "ws-1",
 			slackTeamId: "T123",
-			slackBotToken: "xoxb-test",
+			slackBotToken: encrypt("xoxb-test", ENCRYPTION_KEY),
 			slackBotUserId: "U123",
 		});
 
@@ -142,13 +197,13 @@ describe("ConnectionManager", () => {
 		await manager.connect({
 			id: "ws-1",
 			slackTeamId: "T1",
-			slackBotToken: "xoxb-1",
+			slackBotToken: encrypt("xoxb-1", ENCRYPTION_KEY),
 			slackBotUserId: "U1",
 		});
 		await manager.connect({
 			id: "ws-2",
 			slackTeamId: "T2",
-			slackBotToken: "xoxb-2",
+			slackBotToken: encrypt("xoxb-2", ENCRYPTION_KEY),
 			slackBotUserId: "U2",
 		});
 
@@ -169,18 +224,71 @@ describe("ConnectionManager", () => {
 		const ws = {
 			id: "ws-1",
 			slackTeamId: "T123",
-			slackBotToken: "xoxb-old",
+			slackBotToken: encrypt("xoxb-old", ENCRYPTION_KEY),
 			slackBotUserId: "U123",
 		};
 
 		await manager.connect(ws);
 		const conn1 = manager.getConnection("ws-1");
 
-		await manager.connect({ ...ws, slackBotToken: "xoxb-new" });
+		await manager.connect({ ...ws, slackBotToken: encrypt("xoxb-new", ENCRYPTION_KEY) });
 		const conn2 = manager.getConnection("ws-1");
 
 		expect(conn1).not.toBe(conn2);
 		expect(manager.connectedCount).toBe(1);
+	});
+
+	it("handles corrupted token gracefully (falls back to raw value)", async () => {
+		const manager = new ConnectionManager({
+			config: baseManagedConfig,
+			prisma: mockPrisma,
+			logger: mockLogger,
+			onEvent,
+			onInteraction,
+		});
+
+		const conn = await manager.connect({
+			id: "ws-1",
+			slackTeamId: "T123",
+			slackBotToken: "not-a-valid-encrypted-token",
+			slackBotUserId: "U123",
+		});
+
+		// Falls back to raw value when decryption fails
+		expect(conn.getClient().token).toBe("not-a-valid-encrypted-token");
+	});
+
+	it("connectAll decrypts tokens from database", async () => {
+		const encryptedToken = encrypt("xoxb-from-db", ENCRYPTION_KEY);
+		const prismaWithWorkspaces = {
+			workspace: {
+				findMany: vi.fn().mockResolvedValue([
+					{
+						id: "ws-db-1",
+						slackTeamId: "T_DB",
+						slackBotToken: encryptedToken,
+						slackBotUserId: "U_DB",
+						isActive: true,
+					},
+				]),
+				findUnique: vi.fn(),
+			},
+		} as never;
+
+		const manager = new ConnectionManager({
+			config: baseManagedConfig,
+			prisma: prismaWithWorkspaces,
+			logger: mockLogger,
+			onEvent,
+			onInteraction,
+		});
+
+		await manager.connectAll();
+
+		expect(manager.connectedCount).toBe(1);
+		const conn = manager.getConnectionByTeamId("T_DB");
+		expect(conn).toBeDefined();
+		expect(conn?.getClient().token).toBe("xoxb-from-db");
 	});
 });
 

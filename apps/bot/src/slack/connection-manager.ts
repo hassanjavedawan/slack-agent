@@ -1,6 +1,6 @@
 import type { PrismaClient } from "@openviktor/db";
 import type { EnvConfig, Logger } from "@openviktor/shared";
-import { isSelfHosted } from "@openviktor/shared";
+import { decrypt, isManaged, isSelfHosted } from "@openviktor/shared";
 import { App } from "@slack/bolt";
 import { WebClient } from "@slack/web-api";
 import { createSlackLoggerAdapter } from "./app.js";
@@ -277,10 +277,24 @@ export class ConnectionManager {
 				this.logger,
 			);
 		} else {
+			// In managed mode, bot tokens are stored encrypted in the database.
+			// Decrypt before creating the WebClient connection.
+			let botToken = workspace.slackBotToken;
+			if (this.config.ENCRYPTION_KEY) {
+				try {
+					botToken = decrypt(workspace.slackBotToken, this.config.ENCRYPTION_KEY);
+				} catch (err) {
+					this.logger.error(
+						{ err, workspaceId: workspace.id },
+						"Failed to decrypt bot token — token may be plaintext or corrupted",
+					);
+				}
+			}
+
 			connection = new EventsApiConnection(
 				workspace.id,
 				workspace.slackTeamId,
-				workspace.slackBotToken,
+				botToken,
 				workspace.slackBotUserId,
 				this.logger,
 			);
