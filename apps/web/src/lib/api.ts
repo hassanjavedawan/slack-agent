@@ -94,6 +94,7 @@ export interface IntegrationApp {
 	description: string;
 	imgSrc?: string;
 	categories: string[];
+	provider: string;
 }
 
 export interface IntegrationsData {
@@ -284,8 +285,9 @@ export function getTeam(): Promise<TeamData> {
 	return fetchApi("/team");
 }
 
-export function getIntegrations(): Promise<IntegrationsData> {
-	return fetchApi("/integrations");
+export function getIntegrations(search?: string): Promise<IntegrationsData> {
+	const params = search ? `?search=${encodeURIComponent(search)}` : "";
+	return fetchApi(`/integrations${params}`);
 }
 
 export function connectIntegration(appSlug: string): Promise<{ connectUrl: string }> {

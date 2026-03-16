@@ -110,13 +110,14 @@ export function createDashboardApi(deps: DashboardApiDeps) {
 		});
 	}
 
-	async function handleIntegrations(workspaceId: string | null): Promise<Response> {
+	async function handleIntegrations(url: URL, workspaceId: string | null): Promise<Response> {
 		const workspace = await getWorkspace(workspaceId);
+		const search = url.searchParams.get("search") ?? "";
 
 		const [accounts, toolDefs] = await Promise.all([
 			prisma.integrationAccount.findMany({
 				where: { workspaceId: workspace.id, status: "ACTIVE" },
-				select: { appSlug: true },
+				select: { appSlug: true, appName: true, provider: true },
 			}),
 			prisma.toolDefinition.findMany({
 				where: { workspaceId: workspace.id, name: { startsWith: "mcp_pd_" } },
@@ -135,24 +136,49 @@ export function createDashboardApi(deps: DashboardApiDeps) {
 			}
 		}
 
-		let apps: Array<{
-			slug: string;
-			name: string;
-			description: string;
-			imgSrc?: string;
-			categories: string[];
-		}> = [];
+		const appsMap = new Map<
+			string,
+			{
+				slug: string;
+				name: string;
+				description: string;
+				imgSrc?: string;
+				categories: string[];
+				provider: string;
+			}
+		>();
 
 		if (pdClient) {
-			const pdApps = await pdClient.listApps({ hasActions: true, limit: 50 });
-			apps = pdApps.map((app) => ({
-				slug: app.name_slug,
-				name: app.name,
-				description: app.description ?? "",
-				imgSrc: app.img_src,
-				categories: app.categories ?? [],
-			}));
+			const pdApps = await pdClient.listApps({
+				hasActions: true,
+				limit: 200,
+				...(search ? { q: search } : {}),
+			});
+			for (const app of pdApps) {
+				appsMap.set(app.name_slug, {
+					slug: app.name_slug,
+					name: app.name,
+					description: app.description ?? "",
+					imgSrc: app.img_src,
+					categories: app.categories ?? [],
+					provider: "pipedream",
+				});
+			}
 		}
+
+		for (const account of accounts) {
+			if (!appsMap.has(account.appSlug)) {
+				appsMap.set(account.appSlug, {
+					slug: account.appSlug,
+					name: account.appName,
+					description: "",
+					categories: [],
+					provider: account.provider,
+				});
+			}
+		}
+
+		const apps = Array.from(appsMap.values());
 
 		return Response.json({ apps, connectedSlugs, toolCounts });
 	}
@@ -859,7 +885,7 @@ export function createDashboardApi(deps: DashboardApiDeps) {
 				if (req.method === "GET" && pathname === "/api/workspace")
 					return await handleWorkspace(workspaceId);
 				if (req.method === "GET" && pathname === "/api/integrations")
-					return await handleIntegrations(workspaceId);
+					return await handleIntegrations(url, workspaceId);
 				if (req.method === "POST" && pathname === "/api/integrations/connect")
 					return await handleConnect(req, workspaceId);
 				if (req.method === "POST" && pathname === "/api/integrations/disconnect")
