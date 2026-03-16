@@ -62,10 +62,34 @@ export async function resolveMember(
 	});
 }
 
-function escapeRegExp(str: string): string {
-	return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
+export async function resolveUserMentions(
+	text: string,
+	prisma: PrismaClient,
+	client: SlackClient,
+	workspaceId: string,
+): Promise<string> {
+	const mentionPattern = /<@(U[A-Z0-9]+)(?:\|([^>]*))?>/g;
+	const matches = [...text.matchAll(mentionPattern)];
+	if (matches.length === 0) return text;
 
-export function stripBotMention(text: string, botUserId: string): string {
-	return text.replace(new RegExp(`<@${escapeRegExp(botUserId)}(\\|[^>]*)?>\\s*`, "g"), "").trim();
+	const uniqueUserIds = [...new Set(matches.map((m) => m[1]))];
+	const nameMap = new Map<string, string>();
+
+	for (const userId of uniqueUserIds) {
+		try {
+			const member = await resolveMember(prisma, client, workspaceId, userId);
+			if (member.displayName) {
+				nameMap.set(userId, member.displayName);
+			}
+		} catch {
+			// leave raw mention if resolution fails
+		}
+	}
+
+	return text.replace(mentionPattern, (_match, userId: string, fallbackName?: string) => {
+		const resolved = nameMap.get(userId);
+		if (resolved) return `@${resolved}`;
+		if (fallbackName) return `@${fallbackName}`;
+		return `@${userId}`;
+	});
 }

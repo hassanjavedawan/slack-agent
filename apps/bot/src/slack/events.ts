@@ -18,7 +18,12 @@ import {
 import { seedBuiltinSkills } from "../skills/seed.js";
 import { fetchActiveThreads } from "../thread/index.js";
 import { registerWorkspaceToken } from "../tool-gateway/server.js";
-import { type SlackClient, resolveMember, resolveWorkspace, stripBotMention } from "./resolve.js";
+import {
+	type SlackClient,
+	resolveMember,
+	resolveUserMentions,
+	resolveWorkspace,
+} from "./resolve.js";
 
 export interface BotContext {
 	prisma: PrismaClient;
@@ -135,7 +140,12 @@ async function handleMessage(
 
 	await addReaction(slackClient, msg.channel, msg.ts, "hourglass_flowing_sand", ctx.logger);
 
-	const userMessage = stripBotMention(msg.text as string, botUserId);
+	const userMessage = await resolveUserMentions(
+		msg.text as string,
+		ctx.prisma,
+		slackClient,
+		workspace.id,
+	);
 	const onboarding = await isOnboardingNeeded(ctx.prisma, workspace);
 	let triggerType: "ONBOARDING" | "DM" | "MENTION" = "MENTION";
 	if (onboarding) triggerType = "ONBOARDING";
@@ -319,7 +329,7 @@ async function handleMention(
 
 	await addReaction(slackClient, event.channel, event.ts, "hourglass_flowing_sand", ctx.logger);
 
-	const userMessage = stripBotMention(event.text, botUserId);
+	const userMessage = await resolveUserMentions(event.text, ctx.prisma, slackClient, workspace.id);
 	const onboarding = await isOnboardingNeeded(ctx.prisma, workspace);
 	const triggerType = onboarding ? "ONBOARDING" : "MENTION";
 
