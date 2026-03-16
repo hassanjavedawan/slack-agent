@@ -16,7 +16,7 @@ export function RunsPage() {
 	const [status, setStatus] = useState("");
 	const [triggerType, setTriggerType] = useState("");
 
-	const { data, isLoading } = useQuery({
+	const { data, isLoading, error } = useQuery({
 		queryKey: ["runs", page, status, triggerType],
 		queryFn: () => getRuns({ page, limit: 25, status, triggerType }),
 	});
@@ -63,6 +63,12 @@ export function RunsPage() {
 				)}
 			</div>
 
+			{error && (
+				<div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+					Failed to load runs. Please try again.
+				</div>
+			)}
+
 			<div className="rounded-xl border border-slate-200 bg-white shadow-sm">
 				{isLoading ? (
 					<div className="space-y-3 p-5">
@@ -92,9 +98,15 @@ export function RunsPage() {
 									<tr
 										key={run.id}
 										tabIndex={0}
+										aria-label={`View run ${run.status} ${run.triggerType}`}
 										className="cursor-pointer border-b border-slate-50 transition-colors hover:bg-slate-50"
 										onClick={() => navigate(`/runs/${run.id}`)}
-										onKeyDown={(e) => e.key === "Enter" && navigate(`/runs/${run.id}`)}
+										onKeyDown={(e) => {
+											if (e.key === "Enter" || e.key === " ") {
+												e.preventDefault();
+												navigate(`/runs/${run.id}`);
+											}
+										}}
 									>
 										<td className="px-5 py-3">
 											<Badge className={statusColor(run.status)}>{run.status}</Badge>

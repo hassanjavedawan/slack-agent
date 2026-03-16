@@ -421,10 +421,10 @@ export function createDashboardApi(deps: DashboardApiDeps) {
 		const totalCost = allRuns.reduce((sum, r) => sum + r.costCents, 0);
 		const successRate = totalRuns > 0 ? completedRuns / totalRuns : 0;
 
-		// Daily chart data
 		const runsByDayMap = new Map<string, { runs: number; cost: number }>();
 		for (const run of allRuns) {
-			const day = run.createdAt.toISOString().slice(0, 10);
+			const d = run.createdAt;
+			const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 			const entry = runsByDayMap.get(day) ?? { runs: 0, cost: 0 };
 			entry.runs++;
 			entry.cost += run.costCents;
@@ -434,7 +434,6 @@ export function createDashboardApi(deps: DashboardApiDeps) {
 			.map(([date, v]) => ({ date, runs: v.runs, cost: v.cost }))
 			.sort((a, b) => a.date.localeCompare(b.date));
 
-		// Cost by model
 		const costByModelMap = new Map<string, { cost: number; count: number }>();
 		for (const run of allRuns) {
 			const entry = costByModelMap.get(run.model) ?? { cost: 0, count: 0 };
@@ -446,7 +445,6 @@ export function createDashboardApi(deps: DashboardApiDeps) {
 			.map(([model, v]) => ({ model, cost: v.cost, count: v.count }))
 			.sort((a, b) => b.cost - a.cost);
 
-		// Trigger breakdown
 		const runsByTriggerMap = new Map<string, number>();
 		for (const run of allRuns) {
 			runsByTriggerMap.set(run.triggerType, (runsByTriggerMap.get(run.triggerType) ?? 0) + 1);
@@ -455,7 +453,6 @@ export function createDashboardApi(deps: DashboardApiDeps) {
 			.map(([trigger, count]) => ({ trigger, count }))
 			.sort((a, b) => b.count - a.count);
 
-		// Recent runs
 		const recentRuns = allRuns.slice(0, 10).map((r) => ({
 			id: r.id,
 			status: r.status,
@@ -485,15 +482,26 @@ export function createDashboardApi(deps: DashboardApiDeps) {
 
 	async function handleRuns(url: URL, workspaceId: string | null): Promise<Response> {
 		const workspace = await getWorkspace(workspaceId);
-		const page = Math.max(1, Number(url.searchParams.get("page")) || 1);
-		const limit = Math.min(100, Math.max(1, Number(url.searchParams.get("limit")) || 25));
+		const page = Math.max(1, Math.floor(Number(url.searchParams.get("page")) || 1));
+		const limit = Math.min(
+			100,
+			Math.max(1, Math.floor(Number(url.searchParams.get("limit")) || 25)),
+		);
 		const status = url.searchParams.get("status");
 		const triggerType = url.searchParams.get("triggerType");
 		const model = url.searchParams.get("model");
 
 		const where: Record<string, unknown> = { workspaceId: workspace.id };
-		if (status && VALID_RUN_STATUSES.includes(status)) where.status = status;
-		if (triggerType && VALID_TRIGGER_TYPES.includes(triggerType)) where.triggerType = triggerType;
+		if (status) {
+			if (!VALID_RUN_STATUSES.includes(status))
+				return Response.json({ error: `Invalid status: ${status}` }, { status: 400 });
+			where.status = status;
+		}
+		if (triggerType) {
+			if (!VALID_TRIGGER_TYPES.includes(triggerType))
+				return Response.json({ error: `Invalid triggerType: ${triggerType}` }, { status: 400 });
+			where.triggerType = triggerType;
+		}
 		if (model) where.model = model;
 
 		const [data, total] = await Promise.all([
@@ -601,12 +609,19 @@ export function createDashboardApi(deps: DashboardApiDeps) {
 
 	async function handleThreads(url: URL, workspaceId: string | null): Promise<Response> {
 		const workspace = await getWorkspace(workspaceId);
-		const page = Math.max(1, Number(url.searchParams.get("page")) || 1);
-		const limit = Math.min(100, Math.max(1, Number(url.searchParams.get("limit")) || 25));
+		const page = Math.max(1, Math.floor(Number(url.searchParams.get("page")) || 1));
+		const limit = Math.min(
+			100,
+			Math.max(1, Math.floor(Number(url.searchParams.get("limit")) || 25)),
+		);
 		const status = url.searchParams.get("status");
 
 		const where: Record<string, unknown> = { workspaceId: workspace.id };
-		if (status && VALID_THREAD_STATUSES.includes(status)) where.status = status;
+		if (status) {
+			if (!VALID_THREAD_STATUSES.includes(status))
+				return Response.json({ error: `Invalid status: ${status}` }, { status: 400 });
+			where.status = status;
+		}
 
 		const [data, total] = await Promise.all([
 			prisma.thread.findMany({
@@ -712,8 +727,11 @@ export function createDashboardApi(deps: DashboardApiDeps) {
 
 	async function handleLearnings(url: URL, workspaceId: string | null): Promise<Response> {
 		const workspace = await getWorkspace(workspaceId);
-		const page = Math.max(1, Number(url.searchParams.get("page")) || 1);
-		const limit = Math.min(100, Math.max(1, Number(url.searchParams.get("limit")) || 25));
+		const page = Math.max(1, Math.floor(Number(url.searchParams.get("page")) || 1));
+		const limit = Math.min(
+			100,
+			Math.max(1, Math.floor(Number(url.searchParams.get("limit")) || 25)),
+		);
 		const search = url.searchParams.get("search");
 
 		const where: Record<string, unknown> = { workspaceId: workspace.id };
@@ -755,8 +773,11 @@ export function createDashboardApi(deps: DashboardApiDeps) {
 
 	async function handleSkills(url: URL, workspaceId: string | null): Promise<Response> {
 		const workspace = await getWorkspace(workspaceId);
-		const page = Math.max(1, Number(url.searchParams.get("page")) || 1);
-		const limit = Math.min(100, Math.max(1, Number(url.searchParams.get("limit")) || 25));
+		const page = Math.max(1, Math.floor(Number(url.searchParams.get("page")) || 1));
+		const limit = Math.min(
+			100,
+			Math.max(1, Math.floor(Number(url.searchParams.get("limit")) || 25)),
+		);
 
 		const where = { workspaceId: workspace.id };
 

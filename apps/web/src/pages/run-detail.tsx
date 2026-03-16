@@ -31,9 +31,12 @@ export function RunDetailPage() {
 	}
 
 	if (error || !run) {
+		if (error) {
+			console.error("Failed to load run details", error);
+		}
 		return (
 			<div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-				{error ? (error as Error).message : "Run not found"}
+				{error ? "Failed to load run details." : "Run not found"}
 			</div>
 		);
 	}
@@ -151,6 +154,8 @@ function ToolCallRow({ toolCall }: { toolCall: ToolCallItem }) {
 		<div className="rounded-lg border border-slate-200">
 			<button
 				type="button"
+				aria-expanded={open}
+				aria-controls={`tool-call-${toolCall.id}-panel`}
 				onClick={() => setOpen(!open)}
 				className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors hover:bg-slate-50"
 			>
@@ -166,7 +171,10 @@ function ToolCallRow({ toolCall }: { toolCall: ToolCallItem }) {
 				</span>
 			</button>
 			{open && (
-				<div className="space-y-3 border-t border-slate-100 p-4">
+				<div
+					id={`tool-call-${toolCall.id}-panel`}
+					className="space-y-3 border-t border-slate-100 p-4"
+				>
 					{toolCall.errorMessage && (
 						<div className="rounded bg-red-50 p-2 font-mono text-xs text-red-700">
 							{toolCall.errorMessage}

@@ -48,9 +48,10 @@ export function IntegrationsPage() {
 	}
 
 	if (error) {
+		console.error("Failed to load integrations", error);
 		return (
 			<div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-				Failed to load integrations: {(error as Error).message}
+				Failed to load integrations. Please try again.
 			</div>
 		);
 	}

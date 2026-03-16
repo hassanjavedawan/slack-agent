@@ -31,9 +31,10 @@ export function ToolsPage() {
 	}
 
 	if (error) {
+		console.error("Failed to load tools", error);
 		return (
 			<div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-				Failed to load tools: {(error as Error).message}
+				Failed to load tools. Please try again.
 			</div>
 		);
 	}

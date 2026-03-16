@@ -28,9 +28,10 @@ export function UsagePage() {
 	}
 
 	if (error) {
+		console.error("Failed to load usage", error);
 		return (
 			<div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-				Failed to load usage: {(error as Error).message}
+				Failed to load usage. Please try again.
 			</div>
 		);
 	}

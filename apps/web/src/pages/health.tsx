@@ -28,9 +28,10 @@ export function HealthPage() {
 	}
 
 	if (error) {
+		console.error("Failed to load health status", error);
 		return (
 			<div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-				Failed to load health status: {(error as Error).message}
+				Failed to load health status. Please try again.
 			</div>
 		);
 	}

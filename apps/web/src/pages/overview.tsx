@@ -31,9 +31,10 @@ export function OverviewPage() {
 	}
 
 	if (error) {
+		console.error("Failed to load overview", error);
 		return (
 			<div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-				Failed to load overview: {(error as Error).message}
+				Failed to load overview. Please try again.
 			</div>
 		);
 	}
@@ -171,9 +172,15 @@ function RecentRunsTable({ runs }: { runs: OverviewRunsList }) {
 						<tr
 							key={run.id}
 							tabIndex={0}
+							aria-label={`View run ${run.status} ${run.triggerType}`}
 							className="cursor-pointer border-b border-slate-50 transition-colors hover:bg-slate-50"
 							onClick={() => navigate(`/runs/${run.id}`)}
-							onKeyDown={(e) => e.key === "Enter" && navigate(`/runs/${run.id}`)}
+							onKeyDown={(e) => {
+								if (e.key === "Enter" || e.key === " ") {
+									e.preventDefault();
+									navigate(`/runs/${run.id}`);
+								}
+							}}
 						>
 							<td className="py-2.5 pr-4">
 								<Badge className={statusColor(run.status)}>{run.status}</Badge>

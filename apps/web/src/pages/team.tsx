@@ -22,9 +22,10 @@ export function TeamPage() {
 	}
 
 	if (error) {
+		console.error("Failed to load team", error);
 		return (
 			<div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-				Failed to load team: {(error as Error).message}
+				Failed to load team. Please try again.
 			</div>
 		);
 	}
