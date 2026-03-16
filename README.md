@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/banner.svg" alt="OpenViktor — Open-source AI coworker for Slack" width="100%"/>
+  <img src="docs/assets/banner.jpg" alt="OpenViktor — Hire your AI employee. For any role." width="100%"/>
 </p>
 
 <p align="center">
