@@ -713,7 +713,16 @@ function createCoworkerUploadToSlackExecutor(slackToken: string): ToolExecutor {
 		try {
 			const { channel, filePath, filename, title } = parseUploadToSlackArgs(args);
 			const absolutePath = resolveSafePath(ctx.workspaceDir, filePath);
-			const content = await readFile(absolutePath);
+			let content: Buffer;
+			try {
+				content = await readFile(absolutePath);
+			} catch {
+				return {
+					output: null,
+					durationMs: 0,
+					error: `File not found: ${absolutePath} (input: "${filePath}"). Use bash with ls to check where the file was saved.`,
+				};
+			}
 
 			const initUpload = await slackApiCall(slackToken, "files.getUploadURLExternal", {
 				filename,
