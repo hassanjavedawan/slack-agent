@@ -168,7 +168,7 @@ export function createDashboardApi(deps: DashboardApiDeps) {
 				.map((a) => a.appSlug);
 			if (missingSlugs.length > 0) {
 				const lookups = await Promise.all(
-					missingSlugs.map((slug) => pdClient!.listApps({ q: slug, limit: 1 })),
+					missingSlugs.map((slug) => pdClient.listApps({ q: slug, limit: 1 })),
 				);
 				for (const result of lookups) {
 					if (result.length > 0) {
