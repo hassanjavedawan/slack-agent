@@ -254,13 +254,12 @@ describe("ConnectionManager", () => {
 			slackBotUserId: "U123",
 		});
 
-		// Falls back to raw value when decryption fails
 		expect(conn.getClient().token).toBe("not-a-valid-encrypted-token");
 	});
 
 	it("throws if ENCRYPTION_KEY is missing in managed mode", async () => {
 		const configNoKey = {
-			...baseManagedConfig,
+			...(baseManagedConfig as Record<string, unknown>),
 			ENCRYPTION_KEY: undefined,
 		} as never;
 
