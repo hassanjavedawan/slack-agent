@@ -69,8 +69,13 @@ export function IntegrationsPage() {
 	const connectedSlugs = new Set(data?.connectedSlugs ?? []);
 	const toolCounts = data?.toolCounts ?? {};
 	const connectedCount = connectedSlugs.size;
+	const isSearching = debouncedSearch.length > 0;
 
-	const sorted = [...apps].sort((a, b) => {
+	const filtered = isSearching
+		? apps.filter((a) => a.name.toLowerCase().includes(debouncedSearch.toLowerCase()))
+		: apps;
+
+	const sorted = [...filtered].sort((a, b) => {
 		const aConn = connectedSlugs.has(a.slug) ? 0 : 1;
 		const bConn = connectedSlugs.has(b.slug) ? 0 : 1;
 		if (aConn !== bConn) return aConn - bConn;
@@ -90,12 +95,25 @@ export function IntegrationsPage() {
 				<Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
 				<input
 					type="text"
-					placeholder="Search integrations..."
+					placeholder="Search 3,000+ integrations..."
 					value={search}
 					onChange={(e) => setSearch(e.target.value)}
 					className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-10 pr-4 text-sm text-slate-700 placeholder:text-slate-400 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-400"
 				/>
 			</div>
+
+			{!isSearching && (
+				<p className="text-xs text-slate-400">
+					Showing {sorted.length} integrations. Search to discover more from 3,000+ available apps.
+				</p>
+			)}
+
+			{isLoading && data && (
+				<div className="flex items-center gap-2 text-sm text-slate-400">
+					<div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-primary-600" />
+					Searching...
+				</div>
+			)}
 
 			{mutError && (
 				<div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">

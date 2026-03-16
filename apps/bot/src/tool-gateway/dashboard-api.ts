@@ -136,17 +136,15 @@ export function createDashboardApi(deps: DashboardApiDeps) {
 			}
 		}
 
-		const appsMap = new Map<
-			string,
-			{
-				slug: string;
-				name: string;
-				description: string;
-				imgSrc?: string;
-				categories: string[];
-				provider: string;
-			}
-		>();
+		type AppInfo = {
+			slug: string;
+			name: string;
+			description: string;
+			imgSrc?: string;
+			categories: string[];
+			provider: string;
+		};
+		const appsMap = new Map<string, AppInfo>();
 
 		if (pdClient) {
 			const pdApps = await pdClient.listApps({
@@ -163,6 +161,28 @@ export function createDashboardApi(deps: DashboardApiDeps) {
 					categories: app.categories ?? [],
 					provider: "pipedream",
 				});
+			}
+
+			const missingSlugs = accounts
+				.filter((a) => a.provider === "pipedream" && !appsMap.has(a.appSlug))
+				.map((a) => a.appSlug);
+			if (missingSlugs.length > 0) {
+				const lookups = await Promise.all(
+					missingSlugs.map((slug) => pdClient!.listApps({ q: slug, limit: 1 })),
+				);
+				for (const result of lookups) {
+					if (result.length > 0) {
+						const app = result[0];
+						appsMap.set(app.name_slug, {
+							slug: app.name_slug,
+							name: app.name,
+							description: app.description ?? "",
+							imgSrc: app.img_src,
+							categories: app.categories ?? [],
+							provider: "pipedream",
+						});
+					}
+				}
 			}
 		}
 
