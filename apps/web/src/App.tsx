@@ -1,0 +1,37 @@
+import { Route, Routes } from "react-router-dom";
+import { AppLayout } from "./components/layout/app-layout";
+import { HealthPage } from "./pages/health";
+import { IntegrationsPage } from "./pages/integrations";
+import { KnowledgePage } from "./pages/knowledge";
+import { LoginPage } from "./pages/login";
+import { OverviewPage } from "./pages/overview";
+import { RunDetailPage } from "./pages/run-detail";
+import { RunsPage } from "./pages/runs";
+import { SettingsPage } from "./pages/settings";
+import { TasksPage } from "./pages/tasks";
+import { TeamPage } from "./pages/team";
+import { ThreadsPage } from "./pages/threads";
+import { ToolsPage } from "./pages/tools";
+import { UsagePage } from "./pages/usage";
+
+export function App() {
+	return (
+		<Routes>
+			<Route path="/login" element={<LoginPage />} />
+			<Route element={<AppLayout />}>
+				<Route index element={<HealthPage />} />
+				<Route path="overview" element={<OverviewPage />} />
+				<Route path="runs" element={<RunsPage />} />
+				<Route path="runs/:id" element={<RunDetailPage />} />
+				<Route path="tools" element={<ToolsPage />} />
+				<Route path="threads" element={<ThreadsPage />} />
+				<Route path="knowledge" element={<KnowledgePage />} />
+				<Route path="usage" element={<UsagePage />} />
+				<Route path="tasks" element={<TasksPage />} />
+				<Route path="integrations" element={<IntegrationsPage />} />
+				<Route path="settings" element={<SettingsPage />} />
+				<Route path="settings/team" element={<TeamPage />} />
+			</Route>
+		</Routes>
+	);
+}

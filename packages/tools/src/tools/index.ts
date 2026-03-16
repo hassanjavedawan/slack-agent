@@ -175,17 +175,17 @@ export function createNativeRegistry(config: RegistryConfig = {}): ToolRegistry 
 			slackComms.coworker_update_slack_message,
 			local,
 		);
+		// Upload/download need filesystem access — run in Modal (not localOnly)
+		// so they can see files created by bash/file_write in the sandbox.
 		registry.register(
 			"coworker_upload_to_slack",
 			coworkerUploadToSlackDefinition,
 			slackComms.coworker_upload_to_slack,
-			local,
 		);
 		registry.register(
 			"coworker_download_from_slack",
 			coworkerDownloadFromSlackDefinition,
 			slackComms.coworker_download_from_slack,
-			local,
 		);
 		const slackAdmin = createSlackAdminExecutors(config.slackToken);
 		registry.register(

@@ -78,13 +78,20 @@ if ! grep -qE '^MODAL_AUTH_TOKEN=[^[:space:]]+' .env 2>/dev/null; then
   exit 1
 fi
 
-# ─── Start Docker (postgres + redis + bot-dev) ──────────
+# ─── Start Docker (postgres + redis + bot-dev) + Web Dashboard ──
 # docker-compose.modal.yml overrides TOOL_BACKEND=modal
 echo ""
-echo "Starting bot with Modal tool backend..."
+echo "Starting bot with Modal tool backend + web dashboard..."
 echo ""
 
-exec docker compose \
+cleanup() { kill 0 2>/dev/null; }
+trap cleanup EXIT
+
+# Start Vite dev server for admin dashboard (proxies /api to bot on :3001)
+cd "$REPO_ROOT/apps/web" && bun run dev &
+cd "$REPO_ROOT"
+
+docker compose \
   -f docker/docker-compose.yml \
   -f docker/docker-compose.modal.yml \
   --profile dev up --build bot-dev
