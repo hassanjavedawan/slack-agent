@@ -73,7 +73,7 @@ import {
 	startSlackApp,
 } from "./slack/index.js";
 import { createOAuthHandler } from "./slack/oauth.js";
-import { resolveMember, resolveWorkspace, stripBotMention } from "./slack/resolve.js";
+import { resolveMember, resolveUserMentions, resolveWorkspace } from "./slack/resolve.js";
 import type { SlackClient } from "./slack/resolve.js";
 import { createConcurrencyLimiter } from "./thread/concurrency.js";
 import { fetchActiveThreads } from "./thread/index.js";
@@ -501,7 +501,7 @@ async function main(): Promise<void> {
 		await addReaction(client, event.channel, event.ts, "hourglass_flowing_sand");
 
 		// Prepare message
-		const userMessage = stripBotMention(event.text, botUserId);
+		const userMessage = await resolveUserMentions(event.text, prisma, client, workspace.id);
 		const onboarding = await isOnboardingNeeded(prisma, workspace);
 
 		let triggerType: "ONBOARDING" | "DM" | "MENTION" = "MENTION";

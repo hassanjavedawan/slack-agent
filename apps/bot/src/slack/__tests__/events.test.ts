@@ -5,10 +5,12 @@ const mockResolveWorkspace = vi.fn();
 const mockResolveMember = vi.fn();
 const mockRegisterWorkspaceToken = vi.fn();
 
+const mockResolveUserMentions = vi.fn(async (text: string) => text);
+
 vi.mock("../resolve.js", () => ({
 	resolveWorkspace: (...args: unknown[]) => mockResolveWorkspace(...args),
 	resolveMember: (...args: unknown[]) => mockResolveMember(...args),
-	stripBotMention: (_text: string, _botId: string) => _text.replace(/<@[^>]+>\s*/g, "").trim(),
+	resolveUserMentions: (text: string) => mockResolveUserMentions(text),
 }));
 
 vi.mock("../../tool-gateway/server.js", () => ({
