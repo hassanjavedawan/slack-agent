@@ -51,15 +51,9 @@ function MarqueeRow({
 
 	return (
 		<div className="flex overflow-hidden">
-			<div
-				className="flex gap-8 whitespace-nowrap"
-				style={{ animation: anim }}
-			>
+			<div className="flex gap-8 whitespace-nowrap" style={{ animation: anim }}>
 				{doubled.map((item, i) => (
-					<span
-						key={i}
-						className="flex items-center gap-2 text-white/40 text-sm"
-					>
+					<span key={i} className="flex items-center gap-2 text-white/40 text-sm">
 						<span
 							className="inline-block shrink-0"
 							style={{
@@ -79,10 +73,7 @@ function MarqueeRow({
 
 export default function MarqueeCTA() {
 	return (
-		<section
-			className="pt-24 pb-16 overflow-hidden anim-section"
-			style={{ background: "#0f2038" }}
-		>
+		<section className="pt-24 pb-16 overflow-hidden anim-section" style={{ background: "#0f2038" }}>
 			<div className="max-w-7xl mx-auto px-6 text-center mb-16">
 				<h3
 					className="leading-[1.08] tracking-tight text-white mb-10 max-w-4xl mx-auto"

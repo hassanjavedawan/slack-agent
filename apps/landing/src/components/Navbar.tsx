@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import Link from "next/link";
 import Image from "next/image";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 
 function HumalikeLogo({ height = 28 }: { height?: number }) {
 	return (
@@ -147,10 +147,7 @@ export default function Navbar() {
 						</Link>
 					))}
 					<div className="flex gap-3 pt-2 border-t border-[#d6eaef]">
-						<Link
-							href="/login"
-							className="text-sm text-[#6B6863] hover:text-[#111]"
-						>
+						<Link href="/login" className="text-sm text-[#6B6863] hover:text-[#111]">
 							Sign in
 						</Link>
 						<Link

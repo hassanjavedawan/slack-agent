@@ -71,11 +71,7 @@ const steps = [
 							borderBottom: "1px solid rgba(255,255,255,0.06)",
 						}}
 					>
-						<span
-							style={{ color: "rgba(255,255,255,0.7)", fontSize: 12 }}
-						>
-							{tool.name}
-						</span>
+						<span style={{ color: "rgba(255,255,255,0.7)", fontSize: 12 }}>{tool.name}</span>
 						<span
 							style={{
 								display: "flex",
@@ -136,12 +132,8 @@ const steps = [
 							marginBottom: 4,
 						}}
 					>
-						<span style={{ color: "rgba(255,255,255,0.6)", fontSize: 11 }}>
-							Documentation
-						</span>
-						<span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>
-							72%
-						</span>
+						<span style={{ color: "rgba(255,255,255,0.6)", fontSize: 11 }}>Documentation</span>
+						<span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>72%</span>
 					</div>
 					<div
 						style={{
@@ -168,17 +160,13 @@ const steps = [
 							alignItems: "center",
 							gap: 6,
 							padding: "4px 0",
-							color:
-								i === 0
-									? "rgba(255,255,255,0.6)"
-									: "rgba(255,255,255,0.3)",
+							color: i === 0 ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.3)",
 							fontSize: 11,
 						}}
 					>
 						<span
 							style={{
-								color:
-									i === 0 ? "#22c55e" : "rgba(255,255,255,0.2)",
+								color: i === 0 ? "#22c55e" : "rgba(255,255,255,0.2)",
 							}}
 						>
 							✓
@@ -221,9 +209,7 @@ const steps = [
 							flexShrink: 0,
 						}}
 					>
-						<span style={{ color: "#fff", fontSize: 11, fontWeight: 700 }}>
-							R
-						</span>
+						<span style={{ color: "#fff", fontSize: 11, fontWeight: 700 }}>R</span>
 					</div>
 					<div>
 						<div style={{ display: "flex", alignItems: "center", gap: 5 }}>
@@ -249,9 +235,7 @@ const steps = [
 								AI
 							</span>
 						</div>
-						<span style={{ color: "rgba(255,255,255,0.35)", fontSize: 10 }}>
-							just now
-						</span>
+						<span style={{ color: "rgba(255,255,255,0.35)", fontSize: 10 }}>just now</span>
 					</div>
 				</div>
 				<div
@@ -288,9 +272,7 @@ const steps = [
 							animation: "pulse-dot 1.5s ease-in-out infinite",
 						}}
 					/>
-					<span style={{ color: "#a7c99a", fontSize: 10 }}>
-						Next task in queue
-					</span>
+					<span style={{ color: "#a7c99a", fontSize: 10 }}>Next task in queue</span>
 				</div>
 			</div>
 		),
@@ -311,14 +293,11 @@ export default function HowItWorks() {
 			<div className="absolute inset-0 bg-black/40" />
 
 			<div className="max-w-7xl mx-auto relative z-10">
-				<p className="text-white/50 text-xs tracking-widest uppercase mb-4">
-					How it works
-				</p>
+				<p className="text-white/50 text-xs tracking-widest uppercase mb-4">How it works</p>
 				<h2
 					className="leading-[1.1] tracking-tight text-white mb-8 md:mb-16 max-w-[1000px]"
 					style={{
-						fontFamily:
-							"var(--font-instrument-serif),'Instrument Serif',Georgia,serif",
+						fontFamily: "var(--font-instrument-serif),'Instrument Serif',Georgia,serif",
 						fontWeight: 400,
 						fontSize: "clamp(32px,4vw,52px)",
 					}}
@@ -336,9 +315,7 @@ export default function HowItWorks() {
 								border: "1px solid rgba(255,255,255,0.1)",
 							}}
 						>
-							<span className="text-white/30 font-mono text-sm mb-5">
-								{step.num}
-							</span>
+							<span className="text-white/30 font-mono text-sm mb-5">{step.num}</span>
 							{step.visual}
 							<div className="flex flex-col gap-3">
 								<h3
@@ -349,9 +326,7 @@ export default function HowItWorks() {
 								>
 									{step.title}
 								</h3>
-								<p className="text-white/60 text-sm leading-relaxed">
-									{step.desc}
-								</p>
+								<p className="text-white/60 text-sm leading-relaxed">{step.desc}</p>
 							</div>
 							<div
 								className="mt-auto pt-5 text-white/30 text-xs"

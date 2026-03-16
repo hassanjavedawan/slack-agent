@@ -29,14 +29,11 @@ export default function Testimonials() {
 	return (
 		<section className="py-12 md:py-24 px-6 border-t border-[#E5E2DC] anim-section">
 			<div className="max-w-7xl mx-auto">
-				<p className="text-[#A8A49E] text-xs tracking-widest uppercase mb-4">
-					What teams say
-				</p>
+				<p className="text-[#A8A49E] text-xs tracking-widest uppercase mb-4">What teams say</p>
 				<h2
 					className="leading-[1.1] tracking-tight text-[#111] mb-12"
 					style={{
-						fontFamily:
-							"var(--font-instrument-serif),'Instrument Serif',Georgia,serif",
+						fontFamily: "var(--font-instrument-serif),'Instrument Serif',Georgia,serif",
 						fontWeight: 400,
 						fontSize: "clamp(32px,4vw,52px)",
 					}}
@@ -60,9 +57,7 @@ export default function Testimonials() {
 								/>
 							</svg>
 
-							<p className="text-[#111] text-sm leading-relaxed flex-1">
-								{q.body}
-							</p>
+							<p className="text-[#111] text-sm leading-relaxed flex-1">{q.body}</p>
 
 							<div className="flex items-center gap-3 pt-4 border-t border-[#F5F3EF]">
 								<div
@@ -77,16 +72,10 @@ export default function Testimonials() {
 										flexShrink: 0,
 									}}
 								>
-									<span
-										style={{ color: "#fff", fontSize: 12, fontWeight: 700 }}
-									>
-										{q.initials}
-									</span>
+									<span style={{ color: "#fff", fontSize: 12, fontWeight: 700 }}>{q.initials}</span>
 								</div>
 								<div>
-									<div className="text-sm font-semibold text-[#111]">
-										{q.name}
-									</div>
+									<div className="text-sm font-semibold text-[#111]">{q.name}</div>
 									<div className="text-xs text-[#A8A49E]">
 										{q.role} · {q.company}
 									</div>

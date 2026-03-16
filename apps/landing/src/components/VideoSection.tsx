@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
 import Image from "next/image";
+import { useRef, useState } from "react";
 
 export default function VideoSection() {
 	const videoRef = useRef<HTMLVideoElement>(null);

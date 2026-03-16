@@ -1,13 +1,13 @@
-import Navbar from "@/components/Navbar";
-import Hero from "@/components/Hero";
-import LogosBar from "@/components/LogosBar";
-import VideoSection from "@/components/VideoSection";
-import HowItWorks from "@/components/HowItWorks";
-import WhatViktorDoes from "@/components/WhatViktorDoes";
-import Pricing from "@/components/Pricing";
-import MarqueeCTA from "@/components/MarqueeCTA";
-import Footer from "@/components/Footer";
 import AnimObserver from "@/components/AnimObserver";
+import Footer from "@/components/Footer";
+import Hero from "@/components/Hero";
+import HowItWorks from "@/components/HowItWorks";
+import LogosBar from "@/components/LogosBar";
+import MarqueeCTA from "@/components/MarqueeCTA";
+import Navbar from "@/components/Navbar";
+import Pricing from "@/components/Pricing";
+import VideoSection from "@/components/VideoSection";
+import WhatViktorDoes from "@/components/WhatViktorDoes";
 
 export default function Home() {
 	return (

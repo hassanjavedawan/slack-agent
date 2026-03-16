@@ -67,9 +67,7 @@ function KnowledgeBaseVisual() {
 								display: "inline-block",
 							}}
 						/>
-						<span style={{ fontSize: 13, color: "#111", fontWeight: 500 }}>
-							{item.name}
-						</span>
+						<span style={{ fontSize: 13, color: "#111", fontWeight: 500 }}>{item.name}</span>
 					</div>
 					<span style={{ fontSize: 12, color: "#A8A49E" }}>{item.count}</span>
 				</div>
@@ -163,22 +161,12 @@ function SlackVisual() {
 								flexShrink: 0,
 							}}
 						>
-							<span style={{ color: "#fff", fontSize: 11, fontWeight: 700 }}>
-								M
-							</span>
+							<span style={{ color: "#fff", fontSize: 11, fontWeight: 700 }}>M</span>
 						</div>
 						<div>
-							<div
-								style={{ display: "flex", alignItems: "baseline", gap: 6 }}
-							>
-								<span
-									style={{ fontSize: 13, fontWeight: 700, color: "#111" }}
-								>
-									Maya
-								</span>
-								<span style={{ fontSize: 11, color: "#A8A49E" }}>
-									9:03 AM
-								</span>
+							<div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+								<span style={{ fontSize: 13, fontWeight: 700, color: "#111" }}>Maya</span>
+								<span style={{ fontSize: 11, color: "#A8A49E" }}>9:03 AM</span>
 							</div>
 							<p
 								style={{
@@ -188,8 +176,7 @@ function SlackVisual() {
 									lineHeight: 1.5,
 								}}
 							>
-								Can someone put together a deck on our Q3 performance for the
-								board?
+								Can someone put together a deck on our Q3 performance for the board?
 							</p>
 						</div>
 					</div>
@@ -215,19 +202,11 @@ function SlackVisual() {
 								outlineOffset: 1,
 							}}
 						>
-							<span style={{ color: "#fff", fontSize: 11, fontWeight: 700 }}>
-								R
-							</span>
+							<span style={{ color: "#fff", fontSize: 11, fontWeight: 700 }}>R</span>
 						</div>
 						<div>
-							<div
-								style={{ display: "flex", alignItems: "baseline", gap: 6 }}
-							>
-								<span
-									style={{ fontSize: 13, fontWeight: 700, color: "#111" }}
-								>
-									Rin
-								</span>
+							<div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+								<span style={{ fontSize: 13, fontWeight: 700, color: "#111" }}>Rin</span>
 								<span
 									style={{
 										fontSize: 9,
@@ -240,9 +219,7 @@ function SlackVisual() {
 								>
 									AI
 								</span>
-								<span style={{ fontSize: 11, color: "#A8A49E" }}>
-									9:03 AM
-								</span>
+								<span style={{ fontSize: 11, color: "#A8A49E" }}>9:03 AM</span>
 							</div>
 							<p
 								style={{
@@ -252,9 +229,8 @@ function SlackVisual() {
 									lineHeight: 1.5,
 								}}
 							>
-								On it — I&apos;ll have a draft ready in 10 minutes. I&apos;ll
-								pull the numbers from HubSpot and the Oct board summary from
-								Notion.
+								On it — I&apos;ll have a draft ready in 10 minutes. I&apos;ll pull the numbers from
+								HubSpot and the Oct board summary from Notion.
 							</p>
 						</div>
 					</div>
@@ -310,16 +286,9 @@ function OrgMemoryVisual() {
 			>
 				<svg width={14} height={14} viewBox="0 0 14 14" fill="none">
 					<circle cx="6" cy="6" r="4" stroke="#A8A49E" strokeWidth="1.3" />
-					<path
-						d="M9.5 9.5l2.5 2.5"
-						stroke="#A8A49E"
-						strokeWidth="1.3"
-						strokeLinecap="round"
-					/>
+					<path d="M9.5 9.5l2.5 2.5" stroke="#A8A49E" strokeWidth="1.3" strokeLinecap="round" />
 				</svg>
-				<span style={{ fontSize: 12, color: "#A8A49E" }}>
-					Search org memory…
-				</span>
+				<span style={{ fontSize: 12, color: "#A8A49E" }}>Search org memory…</span>
 				<span
 					style={{
 						marginLeft: "auto",
@@ -348,9 +317,7 @@ function OrgMemoryVisual() {
 							marginBottom: 2,
 						}}
 					>
-						<span style={{ fontSize: 11, fontWeight: 600, color: "#1e6a8a" }}>
-							{r.source}
-						</span>
+						<span style={{ fontSize: 11, fontWeight: 600, color: "#1e6a8a" }}>{r.source}</span>
 						<span style={{ fontSize: 10, color: "#A8A49E" }}>{r.time}</span>
 					</div>
 					<p
@@ -438,9 +405,7 @@ function MeetingVisual() {
 								justifyContent: "center",
 							}}
 						>
-							<span style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>
-								{p.initials}
-							</span>
+							<span style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{p.initials}</span>
 						</div>
 						<span
 							style={{
@@ -501,32 +466,24 @@ function MeetingVisual() {
 						Rin&apos;s Notes · Live
 					</span>
 				</div>
-				{[
-					"Q4 target: $2M ARR",
-					"Launch: March 15",
-					"Action: Maya sends proposal to Acme",
-				].map((note, i) => (
-					<div
-						key={i}
-						style={{
-							display: "flex",
-							gap: 5,
-							alignItems: "flex-start",
-							marginBottom: 3,
-							animation: "msgAppear 8s ease infinite",
-							animationDelay: `${i * 0.6}s`,
-						}}
-					>
-						<span style={{ color: "#1e6a8a", fontSize: 11, marginTop: 1 }}>
-							•
-						</span>
-						<span
-							style={{ fontSize: 11, color: "#1D1C1D", lineHeight: 1.4 }}
+				{["Q4 target: $2M ARR", "Launch: March 15", "Action: Maya sends proposal to Acme"].map(
+					(note, i) => (
+						<div
+							key={i}
+							style={{
+								display: "flex",
+								gap: 5,
+								alignItems: "flex-start",
+								marginBottom: 3,
+								animation: "msgAppear 8s ease infinite",
+								animationDelay: `${i * 0.6}s`,
+							}}
 						>
-							{note}
-						</span>
-					</div>
-				))}
+							<span style={{ color: "#1e6a8a", fontSize: 11, marginTop: 1 }}>•</span>
+							<span style={{ fontSize: 11, color: "#1D1C1D", lineHeight: 1.4 }}>{note}</span>
+						</div>
+					),
+				)}
 			</div>
 		</div>
 	);
@@ -567,14 +524,11 @@ export default function WhatViktorDoes() {
 	return (
 		<section className="py-12 md:py-24 px-6 border-t border-[#E5E2DC]">
 			<div className="max-w-7xl mx-auto">
-				<p className="text-[#A8A49E] text-xs tracking-widest uppercase mb-4">
-					What Viktor does
-				</p>
+				<p className="text-[#A8A49E] text-xs tracking-widest uppercase mb-4">What Viktor does</p>
 				<h2
 					className="leading-[1.1] tracking-tight text-[#111] mb-8 md:mb-16 max-w-[1000px]"
 					style={{
-						fontFamily:
-							"var(--font-instrument-serif),'Instrument Serif',Georgia,serif",
+						fontFamily: "var(--font-instrument-serif),'Instrument Serif',Georgia,serif",
 						fontWeight: 400,
 						fontSize: "clamp(32px,4vw,52px)",
 					}}
@@ -598,9 +552,7 @@ export default function WhatViktorDoes() {
 								>
 									{item.title}
 								</h3>
-								<p className="text-[#6B6863] text-base leading-relaxed">
-									{item.desc}
-								</p>
+								<p className="text-[#6B6863] text-base leading-relaxed">{item.desc}</p>
 							</div>
 						);
 
