@@ -101,6 +101,8 @@ export interface IntegrationsData {
 	apps: IntegrationApp[];
 	connectedSlugs: string[];
 	toolCounts: Record<string, number>;
+	hasMore?: boolean;
+	endCursor?: string | null;
 }
 
 export interface TaskItem {
@@ -252,6 +254,17 @@ export function login(username: string, password: string): Promise<{ success: bo
 	});
 }
 
+export interface UserInfo {
+	username: string;
+	mode: "basic" | "slack-oauth";
+	isAdmin: boolean;
+	workspaceIds?: string[];
+}
+
+export function getMe(): Promise<UserInfo> {
+	return fetchApi("/me");
+}
+
 export function isAuthError(error: unknown): boolean {
 	return error instanceof AuthError;
 }
@@ -285,9 +298,17 @@ export function getTeam(): Promise<TeamData> {
 	return fetchApi("/team");
 }
 
-export function getIntegrations(search?: string): Promise<IntegrationsData> {
-	const params = search ? `?search=${encodeURIComponent(search)}` : "";
-	return fetchApi(`/integrations${params}`);
+export function getIntegrations(opts?: {
+	search?: string;
+	after?: string;
+	limit?: number;
+}): Promise<IntegrationsData> {
+	const params = new URLSearchParams();
+	if (opts?.search) params.set("search", opts.search);
+	if (opts?.after) params.set("after", opts.after);
+	if (opts?.limit) params.set("limit", String(opts.limit));
+	const qs = params.toString();
+	return fetchApi(`/integrations${qs ? `?${qs}` : ""}`);
 }
 
 export function connectIntegration(appSlug: string): Promise<{ connectUrl: string }> {
