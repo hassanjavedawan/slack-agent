@@ -258,6 +258,30 @@ describe("ConnectionManager", () => {
 		expect(conn.getClient().token).toBe("not-a-valid-encrypted-token");
 	});
 
+	it("throws if ENCRYPTION_KEY is missing in managed mode", async () => {
+		const configNoKey = {
+			...baseManagedConfig,
+			ENCRYPTION_KEY: undefined,
+		} as never;
+
+		const manager = new ConnectionManager({
+			config: configNoKey,
+			prisma: mockPrisma,
+			logger: mockLogger,
+			onEvent,
+			onInteraction,
+		});
+
+		await expect(
+			manager.connect({
+				id: "ws-1",
+				slackTeamId: "T123",
+				slackBotToken: "encrypted-blob",
+				slackBotUserId: "U123",
+			}),
+		).rejects.toThrow("ENCRYPTION_KEY is required in managed mode");
+	});
+
 	it("connectAll decrypts tokens from database", async () => {
 		const encryptedToken = encrypt("xoxb-from-db", ENCRYPTION_KEY);
 		const prismaWithWorkspaces = {

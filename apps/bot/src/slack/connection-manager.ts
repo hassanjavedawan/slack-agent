@@ -279,16 +279,24 @@ export class ConnectionManager {
 		} else {
 			// In managed mode, bot tokens are stored encrypted in the database.
 			// Decrypt before creating the WebClient connection.
+			if (!this.config.ENCRYPTION_KEY) {
+				this.logger.error(
+					{ workspaceId: workspace.id },
+					"ENCRYPTION_KEY required in managed mode to decrypt bot tokens",
+				);
+				throw new Error(
+					`ENCRYPTION_KEY is required in managed mode (workspace ${workspace.id})`,
+				);
+			}
+
 			let botToken = workspace.slackBotToken;
-			if (this.config.ENCRYPTION_KEY) {
-				try {
-					botToken = decrypt(workspace.slackBotToken, this.config.ENCRYPTION_KEY);
-				} catch (err) {
-					this.logger.error(
-						{ err, workspaceId: workspace.id },
-						"Failed to decrypt bot token — token may be plaintext or corrupted",
-					);
-				}
+			try {
+				botToken = decrypt(workspace.slackBotToken, this.config.ENCRYPTION_KEY);
+			} catch (err) {
+				this.logger.error(
+					{ err, workspaceId: workspace.id },
+					"Failed to decrypt bot token — token may be plaintext or corrupted",
+				);
 			}
 
 			connection = new EventsApiConnection(
