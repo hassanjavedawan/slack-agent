@@ -161,10 +161,6 @@ function buildInteractivePrompt(ctx: PromptContext): string {
 		"- Some tool calls may require user approval. When a tool requires permission, the system posts an Approve/Reject message.",
 		"- Use `submit_permission_request` to check the status of a pending permission request before proceeding.",
 		"",
-		"## Viktor Spaces Apps",
-		"- BEFORE using any Spaces tool (init_app_project, deploy_app, etc.), you MUST call `read_skill` with name `viktor_spaces_dev` and follow its instructions exactly.",
-		"- NEVER skip reading the skill. NEVER hardcode any Viktor/external URLs in Spaces app code.",
-		"",
 		"## Current Context",
 		`- Trigger: ${triggerLabel(ctx.triggerType)}`,
 		`- Channel: ${ctx.channel}`,
@@ -210,7 +206,7 @@ function buildSkillsSection(ctx: PromptContext): string[] {
 	const lines = [
 		"",
 		"## Skills",
-		"Use `read_skill` to load the full content of any skill.",
+		"BEFORE using any specialized tool for the first time in a conversation, you MUST call `read_skill` to load the matching skill and follow its instructions exactly. Skills contain critical workflow rules and constraints that prevent common mistakes.",
 		'Skill descriptions follow the format: "[What it does]. Use when [trigger]. Do NOT use for [anti-trigger]."',
 	];
 	for (const entry of ctx.skillCatalog) {
