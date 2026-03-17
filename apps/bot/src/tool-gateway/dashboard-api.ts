@@ -1128,10 +1128,13 @@ export function createDashboardApi(deps: DashboardApiDeps) {
 				// Authenticate all other /api/* routes
 				const authCtx = await auth.authenticate(req);
 				if (!authCtx) {
-					return Response.json({ error: "Unauthorized" }, {
-						status: 401,
-						headers: { "WWW-Authenticate": 'Basic realm="OpenViktor Dashboard"' },
-					});
+					return Response.json(
+						{ error: "Unauthorized" },
+						{
+							status: 401,
+							headers: { "WWW-Authenticate": 'Basic realm="OpenViktor Dashboard"' },
+						},
+					);
 				}
 
 				if (req.method === "GET" && pathname === "/api/me") {
