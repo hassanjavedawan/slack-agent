@@ -1,48 +1,53 @@
-import { Writable } from "node:stream";
-import { Logtail } from "@logtail/node";
 import pino from "pino";
 
-let logtail: Logtail | undefined;
+const bsToken = process.env.BETTERSTACK_SOURCE_TOKEN;
+const bsHost = process.env.BETTERSTACK_INGESTING_HOST || "s2301999.eu-fsn-3.betterstackdata.com";
 
-if (process.env.BETTERSTACK_SOURCE_TOKEN) {
-	logtail = new Logtail(process.env.BETTERSTACK_SOURCE_TOKEN);
+const buffer: string[] = [];
+let timer: ReturnType<typeof setTimeout> | null = null;
+
+function flushToBetterStack() {
+	if (!bsToken || buffer.length === 0) return;
+	const batch = buffer.splice(0);
+	timer = null;
+	fetch(`https://${bsHost}`, {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+			Authorization: `Bearer ${bsToken}`,
+		},
+		body: `[${batch.join(",")}]`,
+	}).catch(() => {});
 }
 
-function createDestination(): pino.DestinationStream | undefined {
-	if (!logtail) return undefined;
-
-	return new Writable({
-		write(chunk: Buffer, _encoding, callback) {
-			process.stdout.write(chunk);
-			try {
-				const parsed = JSON.parse(chunk.toString());
-				const level = pino.levels.labels[parsed.level] ?? "info";
-				const method = level === "fatal" ? "error" : level;
-				if (method === "info") logtail?.info(parsed.msg ?? "", parsed);
-				else if (method === "warn") logtail?.warn(parsed.msg ?? "", parsed);
-				else if (method === "error") logtail?.error(parsed.msg ?? "", parsed);
-				else if (method === "debug") logtail?.debug(parsed.msg ?? "", parsed);
-			} catch {}
-			callback();
-		},
-	});
+function sendToBetterStack(line: string) {
+	buffer.push(line);
+	if (!timer) {
+		timer = setTimeout(flushToBetterStack, 1000);
+	}
+	if (buffer.length >= 50) {
+		flushToBetterStack();
+	}
 }
 
 export function createLogger(name: string, level = "info") {
-	const dest = createDestination();
+	if (process.env.NODE_ENV === "development") {
+		return pino({ name, level, transport: { target: "pino-pretty", options: { colorize: true } } });
+	}
 
-	if (dest) {
+	if (bsToken) {
+		const dest = new (require("node:stream").Writable)({
+			write(chunk: Buffer, _enc: string, cb: () => void) {
+				const line = chunk.toString().trim();
+				process.stdout.write(chunk);
+				if (line) sendToBetterStack(line);
+				cb();
+			},
+		});
 		return pino({ name, level }, dest);
 	}
 
-	return pino({
-		name,
-		level,
-		transport:
-			process.env.NODE_ENV === "development"
-				? { target: "pino-pretty", options: { colorize: true } }
-				: undefined,
-	});
+	return pino({ name, level });
 }
 
 export const logger = createLogger("openviktor", process.env.LOG_LEVEL ?? "info");

@@ -13,7 +13,6 @@
 		"clean": "rm -rf dist"
 	},
 	"dependencies": {
-		"@logtail/node": "^0.5.8",
 		"pino": "^9.6.0",
 		"zod": "^3.24.0"
 	},
