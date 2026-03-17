@@ -126,7 +126,10 @@ export function createOAuthHandler(deps: OAuthHandlerConfig) {
 			});
 
 			if (!oauthResponse.ok || !oauthResponse.access_token || !oauthResponse.team) {
-				logger.error({ response: oauthResponse }, "OAuth token exchange failed");
+				logger.error(
+				{ ok: oauthResponse.ok, error: oauthResponse.error, teamId: oauthResponse.team?.id },
+				"OAuth token exchange failed",
+			);
 				return new Response("OAuth token exchange failed", { status: 500 });
 			}
 
