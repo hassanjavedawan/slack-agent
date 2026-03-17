@@ -17,26 +17,14 @@ function flushToBetterStack() {
 	}).catch(() => {});
 }
 
-function sendToBetterStack(line: string) {
-	buffer.push(line);
+function sendLog(level: string, name: string, obj: Record<string, unknown>, msg: string) {
+	buffer.push(JSON.stringify({ ...obj, msg, level, name, dt: new Date().toISOString() }));
 	if (!timer) timer = setTimeout(flushToBetterStack, 1000);
 	if (buffer.length >= 50) flushToBetterStack();
 }
 
-if (bsToken && process.env.NODE_ENV !== "development") {
-	const origWrite = process.stdout.write.bind(process.stdout);
-	process.stdout.write = ((chunk: Uint8Array | string, ...args: unknown[]): boolean => {
-		const str = typeof chunk === "string" ? chunk : Buffer.from(chunk).toString();
-		const trimmed = str.trim();
-		if (trimmed.startsWith("{") && trimmed.includes('"level"')) {
-			sendToBetterStack(trimmed);
-		}
-		return (origWrite as CallableFunction)(chunk, ...args);
-	}) as typeof process.stdout.write;
-}
-
 export function createLogger(name: string, level = "info") {
-	return pino({
+	const log = pino({
 		name,
 		level,
 		transport:
@@ -44,6 +32,23 @@ export function createLogger(name: string, level = "info") {
 				? { target: "pino-pretty", options: { colorize: true } }
 				: undefined,
 	});
+
+	if (!bsToken || process.env.NODE_ENV === "development") return log;
+
+	for (const method of ["trace", "debug", "info", "warn", "error", "fatal"] as const) {
+		const orig = log[method].bind(log);
+		// biome-ignore lint/suspicious/noExplicitAny: pino's LogFn overloads are complex
+		(log as any)[method] = (...args: unknown[]) => {
+			(orig as CallableFunction)(...args);
+			const obj =
+				typeof args[0] === "object" && args[0] !== null ? (args[0] as Record<string, unknown>) : {};
+			const msg =
+				typeof args[0] === "string" ? args[0] : typeof args[1] === "string" ? args[1] : "";
+			sendLog(method, name, obj, msg);
+		};
+	}
+
+	return log;
 }
 
 export const logger = createLogger("openviktor", process.env.LOG_LEVEL ?? "info");
