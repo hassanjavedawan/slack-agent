@@ -2,6 +2,11 @@ import type { PrismaClient } from "@openviktor/db";
 import type { LLMProvider } from "@openviktor/shared";
 import { type ToolExecutor, ToolRegistry } from "../registry.js";
 import {
+	type SpacesService,
+	createSpacesToolExecutors,
+	spacesToolDefinitions,
+} from "../spaces/index.js";
+import {
 	aiStructuredOutputDefinition,
 	createAiStructuredOutputExecutor,
 } from "./ai-structured-output.js";
@@ -455,4 +460,14 @@ export function registerThreadOrchestrationTools(
 		createListRunningPathsExecutor(deps),
 	);
 	registry.register("get_path_info", getPathInfoDefinition, createGetPathInfoExecutor(deps));
+}
+
+export type { SpacesService };
+
+export function registerSpacesTools(registry: ToolRegistry, service: SpacesService): void {
+	const executors = createSpacesToolExecutors(service);
+	const local = { localOnly: true };
+	for (const definition of spacesToolDefinitions) {
+		registry.register(definition.name, definition, executors[definition.name], local);
+	}
 }

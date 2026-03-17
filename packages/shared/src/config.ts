@@ -84,6 +84,14 @@ const envSchema = z
 			.default("true")
 			.transform((v) => v === "true"),
 
+		// Spaces
+		CONVEX_ACCESS_TOKEN: z.string().optional(),
+		CONVEX_TEAM_ID: z.string().optional(),
+		VERCEL_TOKEN: z.string().optional(),
+		VERCEL_ORG_ID: z.string().optional(),
+		SPACES_DOMAIN: z.string().default("viktor.space"),
+		RESEND_API_KEY: z.string().optional(),
+
 		// Pipedream Connect
 		PIPEDREAM_CLIENT_ID: z.string().optional(),
 		PIPEDREAM_CLIENT_SECRET: z.string().optional(),

@@ -29,6 +29,7 @@ import {
 	listWorkspaceConnectionsDefinition,
 	registerDbTools,
 	registerDynamicSlackTools,
+	registerSpacesTools,
 	registerThreadOrchestrationTools,
 	restoreToolsFromDb,
 	submitPermissionRequestDefinition,
@@ -36,6 +37,7 @@ import {
 } from "@openviktor/tools";
 import type { SpawnAgentRunParams } from "@openviktor/tools";
 import type { RegistryConfig, ToolBackend } from "@openviktor/tools";
+import { ConvexClient, SpacesService, VercelClient } from "@openviktor/tools/spaces";
 import { LLMGateway } from "./agent/gateway.js";
 import { AnthropicProvider } from "./agent/providers/anthropic.js";
 import { AgentRunner } from "./agent/runner.js";
@@ -77,6 +79,7 @@ import {
 import { createOAuthHandler } from "./slack/oauth.js";
 import { resolveMember, resolveUserMentions, resolveWorkspace } from "./slack/resolve.js";
 import type { SlackClient } from "./slack/resolve.js";
+import { createSpacesApi } from "./spaces/api.js";
 import { createConcurrencyLimiter } from "./thread/concurrency.js";
 import { fetchActiveThreads } from "./thread/index.js";
 import { ThreadLock } from "./thread/lock.js";
@@ -259,6 +262,36 @@ async function main(): Promise<void> {
 		local,
 	);
 	registry.register("list_cron_jobs", listCronJobsDefinition, cronTools.list_cron_jobs, local);
+
+	// Spaces tools
+	let spacesApi: ReturnType<typeof createSpacesApi> | undefined;
+	if (config.CONVEX_ACCESS_TOKEN && config.CONVEX_TEAM_ID && config.VERCEL_TOKEN) {
+		const convexClient = new ConvexClient({
+			accessToken: config.CONVEX_ACCESS_TOKEN,
+			teamId: config.CONVEX_TEAM_ID,
+		});
+		const vercelClient = new VercelClient({
+			token: config.VERCEL_TOKEN,
+			orgId: config.VERCEL_ORG_ID ?? "",
+			domain: config.SPACES_DOMAIN,
+		});
+		const spacesService = new SpacesService({
+			prisma,
+			convex: convexClient,
+			vercel: vercelClient,
+			spacesDir: "/data/workspaces",
+			spacesApiUrl: config.BASE_URL,
+		});
+		registerSpacesTools(registry, spacesService);
+		spacesApi = createSpacesApi({
+			spacesService,
+			registry,
+			logger: createLogger("spaces-api"),
+			defaultTimeoutMs: config.TOOL_TIMEOUT_MS,
+			resendApiKey: config.RESEND_API_KEY,
+		});
+		logger.info("Spaces tools registered");
+	}
 
 	// Pipedream integration tools
 	let integrationWatcher: IntegrationWatcher | undefined;
@@ -847,6 +880,15 @@ async function main(): Promise<void> {
 			}
 			if (url.pathname === "/slack/oauth/callback" && oauthHandler) {
 				return oauthHandler.handleCallback(req);
+			}
+
+			// Spaces callback API (deployed apps → Viktor)
+			if (url.pathname.startsWith("/api/viktor-spaces/") && spacesApi) {
+				const response = await spacesApi.fetch(req);
+				for (const [key, value] of Object.entries(corsHeaders)) {
+					response.headers.set(key, value);
+				}
+				return response;
 			}
 
 			// Dashboard API

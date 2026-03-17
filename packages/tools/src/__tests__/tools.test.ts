@@ -43,8 +43,10 @@ describe("bash", () => {
 
 	it("runs in workspace directory", async () => {
 		const result = await bashExecutor({ command: "pwd" }, ctx);
+		expect(result.output).not.toBeNull();
 		const output = result.output as { stdout: string };
-		expect(output.stdout.trim()).toBe(workspaceDir);
+		const { realpathSync } = await import("node:fs");
+		expect(realpathSync(output.stdout.trim())).toBe(realpathSync(workspaceDir));
 	});
 
 	it("respects timeout", async () => {

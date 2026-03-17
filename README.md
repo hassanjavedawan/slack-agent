@@ -124,7 +124,7 @@ bun run typecheck                                    # TypeScript strict check
 |---------|--------|
 | Pre-send reflection — review and refine responses before sending | Planned |
 | Email tools — send, read, and manage email from Slack | Planned |
-| Spaces — host and serve apps directly from OpenViktor | Planned |
+| Spaces — host and serve apps directly from OpenViktor | ✅ Core |
 
 ## Contributing
 

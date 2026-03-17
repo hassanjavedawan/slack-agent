@@ -857,6 +857,138 @@ export function createDashboardApi(deps: DashboardApiDeps) {
 		return Response.json({ data: learnings, total, page, limit });
 	}
 
+	async function handleSpaces(workspaceId: string | null): Promise<Response> {
+		const workspace = await getWorkspace(workspaceId);
+		const spaces = await prisma.space.findMany({
+			where: { workspaceId: workspace.id, status: { not: "DELETED" } },
+			orderBy: { createdAt: "desc" },
+			select: {
+				id: true,
+				name: true,
+				status: true,
+				description: true,
+				domain: true,
+				previewUrl: true,
+				productionUrl: true,
+				lastDeployedAt: true,
+				createdAt: true,
+			},
+		});
+
+		return Response.json({
+			spaces: spaces.map((s) => ({
+				id: s.id,
+				name: s.name,
+				status: s.status,
+				description: s.description,
+				domain: s.domain,
+				previewUrl: s.previewUrl,
+				productionUrl: s.productionUrl,
+				lastDeployedAt: s.lastDeployedAt?.toISOString() ?? null,
+				createdAt: s.createdAt.toISOString(),
+			})),
+		});
+	}
+
+	async function handleSpaceDetail(name: string, workspaceId: string | null): Promise<Response> {
+		const workspace = await getWorkspace(workspaceId);
+		const space = await prisma.space.findFirst({
+			where: { workspaceId: workspace.id, name },
+			include: {
+				deployments: {
+					orderBy: { createdAt: "desc" },
+					take: 10,
+					select: {
+						id: true,
+						environment: true,
+						version: true,
+						status: true,
+						url: true,
+						vercelUrl: true,
+						commitMessage: true,
+						durationMs: true,
+						createdAt: true,
+					},
+				},
+			},
+		});
+
+		if (!space) {
+			return Response.json({ error: "Space not found" }, { status: 404 });
+		}
+
+		return Response.json({
+			id: space.id,
+			name: space.name,
+			status: space.status,
+			description: space.description,
+			domain: space.domain,
+			previewUrl: space.previewUrl,
+			productionUrl: space.productionUrl,
+			sandboxPath: space.sandboxPath,
+			convexUrlDev: space.convexUrlDev,
+			convexUrlProd: space.convexUrlProd,
+			lastDeployedAt: space.lastDeployedAt?.toISOString() ?? null,
+			createdAt: space.createdAt.toISOString(),
+			deployments: space.deployments.map((d) => ({
+				id: d.id,
+				environment: d.environment,
+				version: d.version,
+				status: d.status,
+				url: d.url,
+				vercelUrl: d.vercelUrl,
+				commitMessage: d.commitMessage,
+				durationMs: d.durationMs,
+				createdAt: d.createdAt.toISOString(),
+			})),
+		});
+	}
+
+	async function handleSpaceDeployments(
+		name: string,
+		workspaceId: string | null,
+	): Promise<Response> {
+		const workspace = await getWorkspace(workspaceId);
+		const space = await prisma.space.findFirst({
+			where: { workspaceId: workspace.id, name },
+			select: { id: true },
+		});
+
+		if (!space) {
+			return Response.json({ error: "Space not found" }, { status: 404 });
+		}
+
+		const deployments = await prisma.spaceDeployment.findMany({
+			where: { spaceId: space.id },
+			orderBy: { createdAt: "desc" },
+			select: {
+				id: true,
+				environment: true,
+				version: true,
+				status: true,
+				url: true,
+				vercelUrl: true,
+				commitMessage: true,
+				durationMs: true,
+				createdAt: true,
+			},
+		});
+
+		return Response.json({
+			deployments: deployments.map((d) => ({
+				id: d.id,
+				environment: d.environment,
+				version: d.version,
+				status: d.status,
+				url: d.url,
+				vercelUrl: d.vercelUrl,
+				commitMessage: d.commitMessage,
+				durationMs: d.durationMs,
+				createdAt: d.createdAt.toISOString(),
+			})),
+		});
+	}
+
 	async function handleSkills(url: URL, workspaceId: string | null): Promise<Response> {
 		const workspace = await getWorkspace(workspaceId);
 		const page = Math.max(1, Math.floor(Number(url.searchParams.get("page")) || 1));
@@ -1050,6 +1182,19 @@ export function createDashboardApi(deps: DashboardApiDeps) {
 					return await handleLearnings(url, workspaceId);
 				if (req.method === "GET" && pathname === "/api/skills")
 					return await handleSkills(url, workspaceId);
+
+				const spaceNameMatch = pathname.match(/^\/api\/spaces\/([^/]+)$/);
+				const spaceDeploymentsMatch = pathname.match(/^\/api\/spaces\/([^/]+)\/deployments$/);
+
+				if (req.method === "GET" && pathname === "/api/spaces")
+					return await handleSpaces(workspaceId);
+				if (req.method === "GET" && spaceDeploymentsMatch)
+					return await handleSpaceDeployments(
+						decodeURIComponent(spaceDeploymentsMatch[1]),
+						workspaceId,
+					);
+				if (req.method === "GET" && spaceNameMatch)
+					return await handleSpaceDetail(decodeURIComponent(spaceNameMatch[1]), workspaceId);
 
 				// ─── Superadmin (basic auth only) ───────────────
 				if (req.method === "GET" && pathname === "/api/superadmin") {
