@@ -37,6 +37,7 @@ export function App() {
 					return null;
 				}}
 			/>
+			<Route path="/superadmin" element={<SuperadminPage />} />
 			<Route element={<AppLayout />}>
 				<Route path="dashboard" element={<HealthPage />} />
 				<Route path="overview" element={<OverviewPage />} />
@@ -50,7 +51,6 @@ export function App() {
 				<Route path="integrations" element={<IntegrationsPage />} />
 				<Route path="settings" element={<SettingsPage />} />
 				<Route path="settings/team" element={<TeamPage />} />
-				<Route path="superadmin" element={<SuperadminPage />} />
 			</Route>
 		</Routes>
 	);
