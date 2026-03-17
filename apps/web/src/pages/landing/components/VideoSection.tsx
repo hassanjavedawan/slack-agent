@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-const VIDEO_ID = "TlclS4wLWgY";
+const VIDEO_ID = "QJNZF5SQnLo";
 
 export default function VideoSection() {
 	const [playing, setPlaying] = useState(false);
