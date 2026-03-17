@@ -16,8 +16,10 @@ export {
 	registerDbTools,
 	registerDynamicSlackTools,
 	registerThreadOrchestrationTools,
+	registerSpacesTools,
 } from "./tools/index.js";
 export type { RegistryConfig, SlackTokenResolver, ThreadOrchestrationDeps } from "./tools/index.js";
+export type { SpacesService } from "./tools/index.js";
 export type { SpawnAgentRunParams } from "./tools/thread-orchestration.js";
 export {
 	listAvailableIntegrationsDefinition,

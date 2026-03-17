@@ -92,6 +92,12 @@ export interface LLMProvider {
 	}): Promise<LLMResponse>;
 }
 
+export type SpaceStatus = "INITIALIZING" | "READY" | "DEPLOYING" | "ACTIVE" | "FAILED" | "DELETED";
+
+export type SpaceEnvironment = "PREVIEW" | "PRODUCTION";
+
+export type SpaceDeployStatus = "PENDING" | "BUILDING" | "DEPLOYING" | "SUCCESS" | "FAILED";
+
 export interface ToolDefinition {
 	name: string;
 	description: string;

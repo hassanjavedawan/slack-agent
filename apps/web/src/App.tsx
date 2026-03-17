@@ -11,6 +11,8 @@ import { OverviewPage } from "./pages/overview";
 import { RunDetailPage } from "./pages/run-detail";
 import { RunsPage } from "./pages/runs";
 import { SettingsPage } from "./pages/settings";
+import { SpaceDetailPage } from "./pages/space-detail.js";
+import { SpacesPage } from "./pages/spaces.js";
 import { TasksPage } from "./pages/tasks";
 import { TeamPage } from "./pages/team";
 import { ThreadsPage } from "./pages/threads";
@@ -43,6 +45,8 @@ export function App() {
 				<Route path="integrations" element={<IntegrationsPage />} />
 				<Route path="settings" element={<SettingsPage />} />
 				<Route path="settings/team" element={<TeamPage />} />
+				<Route path="spaces" element={<SpacesPage />} />
+				<Route path="spaces/:name" element={<SpaceDetailPage />} />
 			</Route>
 		</Routes>
 	);

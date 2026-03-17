@@ -1,3 +1,5 @@
+> **Implementation Status:** Phase 1-6 complete. Core SDK tools (init, deploy, list, status, query, delete), callback API, dashboard UI, and app template are implemented. Email rate limiting and full Convex Auth template are planned for future phases.
+
 # Viktor Spaces
 
 Reverse-engineered from backup archive: SDK source (`viktor_spaces_tools.py`), SKILL.md (`skills/viktor_spaces_dev/`), a live app (`neonrain-hooks`), agent run transcripts, and global logs.
