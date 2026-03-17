@@ -456,6 +456,8 @@ export function getSpaceDetail(name: string): Promise<SpaceDetail> {
 	return fetchApi(`/spaces/${encodeURIComponent(name)}`);
 }
 
-export function getSpaceDeployments(name: string): Promise<{ deployments: SpaceDeploymentSummary[] }> {
+export function getSpaceDeployments(
+	name: string,
+): Promise<{ deployments: SpaceDeploymentSummary[] }> {
 	return fetchApi(`/spaces/${encodeURIComponent(name)}/deployments`);
 }

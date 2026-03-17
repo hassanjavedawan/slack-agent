@@ -110,13 +110,15 @@ export function SpaceDetailPage() {
 				<Badge className={spaceStatusColor(space.status)}>{space.status}</Badge>
 			</div>
 
-			{space.description && (
-				<p className="text-sm text-slate-600">{space.description}</p>
-			)}
+			{space.description && <p className="text-sm text-slate-600">{space.description}</p>}
 
 			<div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
-				{space.domain && <MetaItem label="Domain" value={space.domain} href={`https://${space.domain}`} />}
-				{space.previewUrl && <MetaItem label="Preview URL" value={space.previewUrl} href={space.previewUrl} />}
+				{space.domain && (
+					<MetaItem label="Domain" value={space.domain} href={`https://${space.domain}`} />
+				)}
+				{space.previewUrl && (
+					<MetaItem label="Preview URL" value={space.previewUrl} href={space.previewUrl} />
+				)}
 				{space.productionUrl && (
 					<MetaItem label="Production URL" value={space.productionUrl} href={space.productionUrl} />
 				)}
@@ -124,12 +126,13 @@ export function SpaceDetailPage() {
 					<MetaItem label="Convex Dev URL" value={space.convexUrlDev} href={space.convexUrlDev} />
 				)}
 				{space.convexUrlProd && (
-					<MetaItem label="Convex Prod URL" value={space.convexUrlProd} href={space.convexUrlProd} />
+					<MetaItem
+						label="Convex Prod URL"
+						value={space.convexUrlProd}
+						href={space.convexUrlProd}
+					/>
 				)}
-				<MetaItem
-					label="Created"
-					value={format(new Date(space.createdAt), "MMM d, yyyy HH:mm")}
-				/>
+				<MetaItem label="Created" value={format(new Date(space.createdAt), "MMM d, yyyy HH:mm")} />
 				{space.lastDeployedAt && (
 					<MetaItem
 						label="Last Deployed"
@@ -158,10 +161,7 @@ export function SpaceDetailPage() {
 							</thead>
 							<tbody>
 								{space.deployments.map((d) => (
-									<tr
-										key={d.id}
-										className="border-b border-slate-50 last:border-0"
-									>
+									<tr key={d.id} className="border-b border-slate-50 last:border-0">
 										<td className="px-4 py-2 text-slate-700">{d.environment}</td>
 										<td className="px-3 py-2">
 											<Badge className={deployStatusColor(d.status)}>{d.status}</Badge>
