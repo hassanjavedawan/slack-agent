@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -16,7 +17,7 @@ let workspaceDir: string;
 let ctx: ToolExecutionContext;
 
 beforeEach(async () => {
-	workspaceDir = join(tmpdir(), `tool-test-${Date.now()}`);
+	workspaceDir = join(tmpdir(), `tool-test-${randomUUID()}`);
 	await mkdir(workspaceDir, { recursive: true });
 	ctx = { workspaceId: "ws_test", workspaceDir, timeoutMs: 30_000 };
 });
