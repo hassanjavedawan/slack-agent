@@ -231,6 +231,7 @@ describe("SpacesService", () => {
 			id: "space_1",
 			name: "test",
 			sandboxPath: "/tmp/test",
+			vercelProjectId: "prj_123",
 		});
 		mockConvex.deleteProject.mockResolvedValue({
 			success: true,
@@ -243,7 +244,7 @@ describe("SpacesService", () => {
 		expect(result.success).toBe(true);
 		expect(result.deletedResources).toContain("convex_dev");
 		expect(result.deletedResources).toContain("vercel_project");
-		expect(result.deletedResources).toContain("database_record");
+		expect(result.deletedResources).toContain("database_record_soft_deleted");
 	});
 
 	it("returns error when deleting nonexistent space", async () => {

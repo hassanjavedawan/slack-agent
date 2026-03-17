@@ -9,6 +9,7 @@ interface SpacesApiDeps {
 	logger: Logger;
 	defaultTimeoutMs: number;
 	resendApiKey?: string;
+	spacesDomain?: string;
 }
 
 interface SpacesToolRequest {
@@ -115,7 +116,7 @@ export function createSpacesApi(deps: SpacesApiDeps): {
 				"Content-Type": "application/json",
 			},
 			body: JSON.stringify({
-				from: `${body.project_name}@notifications.viktor.space`,
+				from: `${body.project_name}@notifications.${deps.spacesDomain ?? "viktor.space"}`,
 				to: body.to_email,
 				subject: body.subject,
 				html: body.html_content,
@@ -129,7 +130,7 @@ export function createSpacesApi(deps: SpacesApiDeps): {
 			return Response.json({ success: false, error: "Email delivery failed" });
 		}
 
-		logger.info({ projectName: body.project_name, to: body.to_email }, "Spaces email sent");
+		logger.info({ projectName: body.project_name }, "Spaces email sent");
 		return Response.json({ success: true });
 	}
 

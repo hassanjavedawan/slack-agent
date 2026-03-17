@@ -34,6 +34,7 @@ type SpaceRecord = {
 	productionUrl: string | null;
 	convexUrlDev: string | null;
 	convexUrlProd: string | null;
+	vercelProjectId: string | null;
 	projectSecret: string;
 	lastDeployedAt: Date | null;
 	createdAt: Date;
@@ -319,7 +320,7 @@ describe("Viktor Spaces lifecycle integration", () => {
 		expect(deleteOutput.deletedResources).toContain("convex_dev");
 		expect(deleteOutput.deletedResources).toContain("convex_prod");
 		expect(deleteOutput.deletedResources).toContain("vercel_project");
-		expect(deleteOutput.deletedResources).toContain("database_record");
+		expect(deleteOutput.deletedResources).toContain("database_record_soft_deleted");
 
 		const listAfterDelete = await executors.list_apps({}, ctx);
 

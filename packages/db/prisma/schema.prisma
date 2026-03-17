@@ -309,6 +309,7 @@ model Space {
   convexProjectId   String?     @map("convex_project_id")
   convexDevDeployKey  String?   @map("convex_dev_deploy_key")
   convexProdDeployKey String?   @map("convex_prod_deploy_key")
+  vercelProjectId   String?     @map("vercel_project_id")
   projectSecret     String      @map("project_secret")
   lastDeployedAt DateTime?   @map("last_deployed_at")
   createdAt      DateTime    @default(now()) @map("created_at")

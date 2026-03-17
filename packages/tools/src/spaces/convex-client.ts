@@ -158,8 +158,11 @@ export class ConvexClient {
 						...(deployKey ? { CONVEX_DEPLOY_KEY: deployKey } : {}),
 					},
 				},
-				(err, stdout) => {
-					if (err) return reject(err);
+				(err, stdout, stderr) => {
+					if (err) {
+						const message = stderr?.trim() || err.message;
+						return reject(new Error(message));
+					}
 					resolve(stdout);
 				},
 			);

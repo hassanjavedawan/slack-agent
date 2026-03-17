@@ -7,6 +7,8 @@ import type { PrismaClient } from "@openviktor/db";
 import type { ConvexClient } from "./convex-client.js";
 import type { VercelClient } from "./vercel-client.js";
 
+const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*[a-z0-9]$/;
+
 interface SpacesServiceConfig {
 	prisma: PrismaClient;
 	convex: ConvexClient;
@@ -93,6 +95,17 @@ export class SpacesService {
 		name: string,
 		description?: string,
 	): Promise<InitResult> {
+		if (!name || name.length < 2 || name.length > 63 || !NAME_PATTERN.test(name)) {
+			return {
+				success: false,
+				projectName: name,
+				sandboxPath: "",
+				convexUrlDev: "",
+				convexUrlProd: "",
+				error: "Invalid project name. Use 2-63 lowercase alphanumeric characters and hyphens. Must start and end with alphanumeric.",
+			};
+		}
+
 		const sandboxPath = `${this.spacesDir}/${workspaceId}/viktor-spaces/${name}`;
 		const hexId = generateHexId();
 		const projectSecret = generateProjectSecret();
@@ -120,6 +133,7 @@ export class SpacesService {
 				convexProjectId: convexResult.projectId,
 				convexDevDeployKey: convexResult.devDeployKey,
 				convexProdDeployKey: convexResult.prodDeployKey,
+				vercelProjectId: vercelResult.projectId,
 				projectSecret,
 			},
 		});
@@ -167,39 +181,57 @@ export class SpacesService {
 		const convexEnv = environment === "preview" ? "dev" : "prod";
 		const deployKey =
 			convexEnv === "dev" ? space.convexDevDeployKey : space.convexProdDeployKey;
-		await this.convex.deploy(space.sandboxPath, convexEnv, deployKey ?? "");
-		await this.buildFrontend(space.sandboxPath);
 
-		const vercelResult = await this.vercel.deploy(space.sandboxPath, environment);
+		try {
+			await this.convex.deploy(space.sandboxPath, convexEnv, deployKey ?? "");
+			await this.buildFrontend(space.sandboxPath);
 
-		await this.prisma.spaceDeployment.update({
-			where: { id: deployment.id },
-			data: {
-				status: "SUCCESS",
-				url: vercelResult.url,
+			const vercelResult = await this.vercel.deploy(space.sandboxPath, environment);
+
+			await this.prisma.spaceDeployment.update({
+				where: { id: deployment.id },
+				data: {
+					status: "SUCCESS",
+					url: vercelResult.url,
+					vercelUrl: vercelResult.url,
+					durationMs: Date.now() - start,
+				},
+			});
+
+			const updateData: Record<string, unknown> = {
+				lastDeployedAt: new Date(),
+				status: "ACTIVE",
+			};
+			if (environment === "production") updateData.productionUrl = `https://${space.domain}`;
+			else updateData.previewUrl = vercelResult.url;
+
+			await this.prisma.space.update({
+				where: { id: space.id },
+				data: updateData,
+			});
+
+			return {
+				success: true,
+				environment,
+				url: environment === "production" ? `https://${space.domain}` : vercelResult.url,
 				vercelUrl: vercelResult.url,
-				durationMs: Date.now() - start,
-			},
-		});
-
-		const updateData: Record<string, unknown> = {
-			lastDeployedAt: new Date(),
-			status: "ACTIVE",
-		};
-		if (environment === "production") updateData.productionUrl = `https://${space.domain}`;
-		else updateData.previewUrl = vercelResult.url;
-
-		await this.prisma.space.update({
-			where: { id: space.id },
-			data: updateData,
-		});
-
-		return {
-			success: true,
-			environment,
-			url: environment === "production" ? `https://${space.domain}` : vercelResult.url,
-			vercelUrl: vercelResult.url,
-		};
+			};
+		} catch (error) {
+			await this.prisma.spaceDeployment.update({
+				where: { id: deployment.id },
+				data: {
+					status: "FAILED",
+					buildLog: error instanceof Error ? error.message : String(error),
+					durationMs: Date.now() - start,
+				},
+			});
+			return {
+				success: false,
+				environment,
+				url: "",
+				error: error instanceof Error ? error.message : String(error),
+			};
+		}
 	}
 
 	async listSpaces(workspaceId: string): Promise<ListResult> {
@@ -280,14 +312,16 @@ export class SpacesService {
 		const convexResult = await this.convex.deleteProject(name);
 		deleted.push(...convexResult.deletedResources);
 
-		await this.vercel.deleteProject(name);
-		deleted.push("vercel_project");
+		if (space.vercelProjectId) {
+			await this.vercel.deleteProject(space.vercelProjectId);
+			deleted.push("vercel_project");
+		}
 
 		await this.prisma.space.update({
 			where: { id: space.id },
-			data: { status: "DELETED" },
+			data: { status: "DELETED", name: `${space.name}__deleted_${Date.now()}` },
 		});
-		deleted.push("database_record");
+		deleted.push("database_record_soft_deleted");
 
 		return { success: true, projectName: name, deletedResources: deleted };
 	}
