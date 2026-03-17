@@ -121,7 +121,8 @@ After modifying `packages/db/prisma/schema.prisma`:
 openviktor/
 ├── apps/
 │   ├── bot/              # Slack bot + agent runtime
-│   └── web/              # Admin dashboard
+│   ├── web/              # Admin dashboard (React + Vite)
+│   └── landing/          # Landing page (Next.js)
 ├── packages/
 │   ├── db/               # Database schema + client
 │   ├── shared/           # Shared types, config, utilities
@@ -132,28 +133,21 @@ openviktor/
 └── docs/                 # Documentation
 ```
 
-## Viktor Reference Cross-Validation
+## Viktor Reference
 
-OpenViktor is a reimplementation of [getviktor.com](https://getviktor.com). We maintain reverse-engineering reference docs in `docs/viktor-reference/` that describe Viktor's actual behavior.
+OpenViktor is a reimplementation of Viktor. We maintain reverse-engineering reference docs in `docs/viktor-reference/` that describe Viktor's known behavior.
 
-**Before implementing any feature**, check the relevant reference docs to ensure your implementation matches Viktor's known patterns. Intentional deviations are fine but must be documented in the PR description with a rationale.
-
-Key references:
-- `architecture.md` — System design overview
-- `tool-gateway.md` — Tool execution model
-- `thread-orchestrator.md` — Thread lifecycle and concurrency
-- `conversational-style.md` — Response tone and formatting
-- `memory.md` — Knowledge persistence
+Before implementing features, check the relevant reference docs. Intentional deviations from Viktor's patterns are fine but should be documented in the PR description.
 
 ## Commit Messages
 
 Use conventional commits:
 
 ```
-feat: add heartbeat monitoring system
+feat: add email tool integration
 fix: handle Slack event retries correctly
 chore: update dependencies
-docs: add self-hosting guide for Phase 1
+docs: expand self-hosting troubleshooting
 test: add integration tests for agent runner
 ```
 

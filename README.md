@@ -24,7 +24,7 @@
 
 OpenViktor is a fully autonomous AI teammate that lives in Slack. It reads messages, runs tools, learns from your team, and takes action — without leaving the chat. Think of it as hiring an AI employee that actually integrates into how your team already works.
 
-Built as an open-source alternative to [getviktor.com](https://getviktor.com).
+Built as an open-source alternative to Viktor.
 
 ## Features
 

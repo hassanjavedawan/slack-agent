@@ -1,4 +1,4 @@
-# OpenViktor Admin Dashboard — Design System & Page Spec
+# OpenViktor Admin Dashboard — Design System
 
 ## Architecture
 
@@ -10,11 +10,10 @@
 └─────────────────┘     └──────────────────┘     └──────────────────┘
 ```
 
-**Critical constraints:**
-- The web dashboard NEVER connects to the database directly
+**Key constraints:**
+- The web dashboard never connects to the database directly
 - All data flows through the bot service's dashboard API (`dashboard-api.ts`)
-- A thin serverless API gateway (Vercel API routes / Next.js route handlers) proxies requests to the bot service
-- The SPA is a static build, deployable to Vercel / any CDN
+- The SPA is a static build, deployable to Vercel or any CDN
 - Auth: API key or Slack OAuth token passed through the gateway
 
 ## Tech Stack
@@ -112,54 +111,18 @@ Minimal style — no full borders. Header: `border-b border-slate-100 text-xs fo
 | `statusColor(status)` | AgentRun status → badge class |
 | `threadStatusColor(status)` | Thread status → badge class |
 
----
-
 ## Pages
 
-### Pages that can be implemented now (bot API exists or is straightforward to add)
-
-#### 1. Usage (`/usage`)
-**Bot API:** `GET /api/usage` — already implemented
-**Shows:** Monthly cost stats, daily cost chart (one-off vs scheduled), top threads by cost, token breakdown.
-
-#### 2. Settings — General (`/settings`)
-**Bot API:** `GET /api/settings`, `PUT /api/settings/model` — already implemented
-**Shows:** Default model selector, workspace settings JSON view.
-
-#### 3. Settings — Team (`/settings/team`)
-**Bot API:** `GET /api/team` — already implemented
-**Shows:** Team name, seat count, member list (display name, Slack ID, initials).
-
-#### 4. Integrations (`/integrations`)
-**Bot API:** `GET /api/integrations`, `POST /api/integrations/connect`, `POST /api/integrations/disconnect` — already implemented
-**Shows:** Connected apps grid, tool counts per integration, connect/disconnect flows.
-
-#### 5. Scheduled Tasks / Cron Jobs (`/tasks`)
-**Bot API:** `GET /api/tasks` — already implemented
-**Shows:** Cron job list with name, schedule, description, enabled/disabled toggle, type badge.
-
-#### 6. Health / Status (`/`)
-**Bot API:** `GET /api/health` — already implemented (public, no auth)
-**Shows:** System status (healthy/degraded), deployment mode, connected workspaces count, DB status.
-
-### Pages requiring new bot API endpoints
-
-#### 7. Overview Dashboard (`/overview`)
-**Needs:** `GET /api/overview` — aggregate stats (total runs, cost, success rate, active threads), runs by day, runs by trigger, cost by model, recent runs.
-**Data source:** `AgentRun` + `Thread` tables. Similar to existing `/api/usage` but broader.
-
-#### 8. Agent Runs (`/runs`, `/runs/:id`)
-**Needs:** `GET /api/runs?page=&limit=&status=&triggerType=&model=` (paginated list), `GET /api/runs/:id` (detail with messages + tool calls).
-**Data source:** `AgentRun` + `Message` + `ToolCall` tables.
-
-#### 9. Threads (`/threads`)
-**Needs:** `GET /api/threads?page=&limit=&status=` (paginated list).
-**Data source:** `Thread` table with run count.
-
-#### 10. Tools (`/tools`)
-**Needs:** `GET /api/tools/stats` — aggregated tool call statistics (total calls, success/fail counts, avg duration, last used).
-**Data source:** `ToolCall` table.
-
-#### 11. Knowledge (`/knowledge`)
-**Needs:** `GET /api/learnings?page=&limit=&search=` and `GET /api/skills?page=&limit=`.
-**Data source:** `Learning` + `Skill` tables.
+| Route | Description |
+|-------|-------------|
+| `/` | Health / system status |
+| `/overview` | Dashboard with aggregate stats, cost by model, runs by day |
+| `/runs`, `/runs/:id` | Agent run list + detail view with messages and tool calls |
+| `/threads` | Thread list with status and run counts |
+| `/tools` | Tool call statistics — total calls, success rate, avg duration |
+| `/knowledge` | Learnings and skills accumulated by the agent |
+| `/integrations` | Connected apps grid with connect/disconnect flows |
+| `/tasks` | Cron jobs — schedule, description, enabled/disabled toggle |
+| `/usage` | Monthly cost stats, daily cost chart, top threads by cost |
+| `/team` | Workspace members |
+| `/settings` | Model selector, workspace configuration |

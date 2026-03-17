@@ -74,7 +74,7 @@ export default function Pricing() {
 								</span>
 							</div>
 							<div className="p-3 md:p-5 border-l border-[#E5E2DC]">
-								<span className="text-[#A8A49E] text-xs tracking-widest uppercase">getviktor</span>
+								<span className="text-[#A8A49E] text-xs tracking-widest uppercase">Viktor</span>
 							</div>
 						</div>
 
