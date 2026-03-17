@@ -17,8 +17,42 @@ function flushToBetterStack() {
 	}).catch(() => {});
 }
 
+function serializeError(err: unknown): Record<string, unknown> {
+	if (!(err instanceof Error)) return { message: String(err) };
+	const serialized: Record<string, unknown> = {
+		message: err.message,
+		name: err.name,
+		stack: err.stack,
+	};
+	for (const key of Object.getOwnPropertyNames(err)) {
+		if (!(key in serialized)) {
+			serialized[key] = (err as unknown as Record<string, unknown>)[key];
+		}
+	}
+	if ("cause" in err && err.cause != null) {
+		serialized.cause = serializeError(err.cause);
+	}
+	return serialized;
+}
+
+function serializeObj(obj: Record<string, unknown>): Record<string, unknown> {
+	const result: Record<string, unknown> = {};
+	for (const [key, value] of Object.entries(obj)) {
+		result[key] = value instanceof Error ? serializeError(value) : value;
+	}
+	return result;
+}
+
 function sendLog(level: string, name: string, obj: Record<string, unknown>, msg: string) {
-	buffer.push(JSON.stringify({ ...obj, message: msg, level, name, dt: new Date().toISOString() }));
+	buffer.push(
+		JSON.stringify({
+			...serializeObj(obj),
+			message: msg,
+			level,
+			name,
+			dt: new Date().toISOString(),
+		}),
+	);
 	if (!timer) timer = setTimeout(flushToBetterStack, 1000);
 	if (buffer.length >= 50) flushToBetterStack();
 }

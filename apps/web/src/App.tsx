@@ -13,6 +13,7 @@ import { RunsPage } from "./pages/runs";
 import { SettingsPage } from "./pages/settings";
 import { SpaceDetailPage } from "./pages/space-detail.js";
 import { SpacesPage } from "./pages/spaces.js";
+import { SuperadminPage } from "./pages/superadmin";
 import { TasksPage } from "./pages/tasks";
 import { TeamPage } from "./pages/team";
 import { ThreadsPage } from "./pages/threads";
@@ -31,7 +32,14 @@ export function App() {
 			<Route index element={<LandingPage />} />
 			<Route path="/welcome" element={<LandingPage />} />
 			<Route path="/compliance" element={<CompliancePage />} />
-			<Route path="/login" Component={() => { window.location.href = "/slack/oauth/install"; return null; }} />
+			<Route
+				path="/login"
+				Component={() => {
+					window.location.href = "/slack/oauth/install";
+					return null;
+				}}
+			/>
+			<Route path="/superadmin" element={<SuperadminPage />} />
 			<Route element={<AppLayout />}>
 				<Route path="dashboard" element={<HealthPage />} />
 				<Route path="overview" element={<OverviewPage />} />

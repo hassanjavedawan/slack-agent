@@ -72,7 +72,7 @@ resource "google_cloud_run_v2_service" "bot" {
       }
       env {
         name  = "DEFAULT_MODEL"
-        value = "gemini-2.5-flash"
+        value = "gemini-3.1-pro-preview"
       }
       env {
         name  = "BASE_URL"
@@ -93,6 +93,14 @@ resource "google_cloud_run_v2_service" "bot" {
       env {
         name  = "ENABLE_DASHBOARD"
         value = "true"
+      }
+      env {
+        name  = "DASHBOARD_AUTH_MODE"
+        value = "basic"
+      }
+      env {
+        name  = "DASHBOARD_USERNAME"
+        value = "admin"
       }
       env {
         name  = "GLOBAL_MONTHLY_BUDGET_CENTS"
@@ -159,6 +167,15 @@ resource "google_cloud_run_v2_service" "bot" {
         value_source {
           secret_key_ref {
             secret  = google_secret_manager_secret.secrets["database-url"].secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "DASHBOARD_PASSWORD"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.secrets["dashboard-password"].secret_id
             version = "latest"
           }
         }

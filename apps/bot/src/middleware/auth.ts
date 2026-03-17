@@ -84,11 +84,35 @@ export function createAuthMiddleware(deps: AuthMiddlewareConfig) {
 			"Set-Cookie": `ov_session=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=86400${secure}`,
 		});
 
-		return new Response(JSON.stringify({ success: true }), { headers });
+		return new Response(JSON.stringify({ success: true, token }), { headers });
 	}
 
 	async function authenticate(req: Request): Promise<AuthContext | null> {
-		// Try JWT cookie first
+		// Try Authorization header first (Bearer or Basic)
+		const authHeader = req.headers.get("authorization") ?? "";
+		if (authHeader.startsWith("Bearer ")) {
+			const payload = verifyJwt(authHeader.slice(7), jwtSecret);
+			if (payload) {
+				return {
+					username: payload.sub as string,
+					mode: payload.mode as "basic" | "slack-oauth",
+					slackUserId: payload.slackUserId as string | undefined,
+				};
+			}
+		}
+
+		// Try Basic Auth header
+		if (authMode === "basic") {
+			if (authHeader.startsWith("Basic ")) {
+				const decoded = Buffer.from(authHeader.slice(6), "base64").toString();
+				const [username, password] = decoded.split(":");
+				if (username === config.DASHBOARD_USERNAME && password === config.DASHBOARD_PASSWORD) {
+					return { username, mode: "basic" };
+				}
+			}
+		}
+
+		// Try JWT cookie
 		const cookie = req.headers.get("cookie") ?? "";
 		const sessionMatch = cookie.match(/ov_session=([^\s;]+)/);
 		if (sessionMatch) {
@@ -109,18 +133,6 @@ export function createAuthMiddleware(deps: AuthMiddlewareConfig) {
 				}
 
 				return ctx;
-			}
-		}
-
-		// Try Basic Auth header
-		if (authMode === "basic") {
-			const authHeader = req.headers.get("authorization") ?? "";
-			if (authHeader.startsWith("Basic ")) {
-				const decoded = Buffer.from(authHeader.slice(6), "base64").toString();
-				const [username, password] = decoded.split(":");
-				if (username === config.DASHBOARD_USERNAME && password === config.DASHBOARD_PASSWORD) {
-					return { username, mode: "basic" };
-				}
 			}
 		}
 

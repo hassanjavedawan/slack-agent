@@ -262,6 +262,35 @@ export function isAuthError(error: unknown): boolean {
 	return error instanceof AuthError;
 }
 
+// ─── Superadmin ─────────────────────────────────────────
+
+export interface SuperadminWorkspace {
+	id: string;
+	slackTeamName: string;
+	slackTeamId: string;
+	isActive: boolean;
+	createdAt: string;
+	members: number;
+	totalRuns: number;
+	totalThreads: number;
+	runsLast24h: number;
+	costLast7dCents: number;
+	lastActivity: string | null;
+}
+
+export interface SuperadminData {
+	summary: {
+		totalWorkspaces: number;
+		activeWorkspaces: number;
+		totalRuns24h: number;
+	};
+	workspaces: SuperadminWorkspace[];
+}
+
+export function getSuperadmin(): Promise<SuperadminData> {
+	return fetchApi("/superadmin");
+}
+
 // ─── Phase A — Existing bot endpoints ───────────────────
 
 export function getHealth(): Promise<HealthData> {
