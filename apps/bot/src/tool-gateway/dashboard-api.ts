@@ -918,6 +918,66 @@ export function createDashboardApi(deps: DashboardApiDeps) {
 		});
 	}
 
+	async function handleSuperadmin(): Promise<Response> {
+		const workspaces = await prisma.workspace.findMany({
+			select: {
+				id: true,
+				slackTeamId: true,
+				slackTeamName: true,
+				isActive: true,
+				createdAt: true,
+				_count: { select: { agentRuns: true, threads: true, members: true } },
+			},
+			orderBy: { createdAt: "desc" },
+		});
+
+		const now = new Date();
+		const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+		const last7d = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+		const enriched = await Promise.all(
+			workspaces.map(async (ws) => {
+				const [recentRuns, lastRun, costTotal] = await Promise.all([
+					prisma.agentRun.count({
+						where: { workspaceId: ws.id, createdAt: { gte: last24h } },
+					}),
+					prisma.agentRun.findFirst({
+						where: { workspaceId: ws.id },
+						orderBy: { createdAt: "desc" },
+						select: { createdAt: true, status: true },
+					}),
+					prisma.agentRun.aggregate({
+						where: { workspaceId: ws.id, createdAt: { gte: last7d } },
+						_sum: { costCents: true },
+					}),
+				]);
+
+				return {
+					id: ws.id,
+					slackTeamName: ws.slackTeamName,
+					slackTeamId: ws.slackTeamId,
+					isActive: ws.isActive,
+					createdAt: ws.createdAt.toISOString(),
+					members: ws._count.members,
+					totalRuns: ws._count.agentRuns,
+					totalThreads: ws._count.threads,
+					runsLast24h: recentRuns,
+					costLast7dCents: costTotal._sum.costCents ?? 0,
+					lastActivity: lastRun?.createdAt.toISOString() ?? null,
+				};
+			}),
+		);
+
+		const totalRuns24h = enriched.reduce((s, w) => s + w.runsLast24h, 0);
+		const totalWorkspaces = enriched.length;
+		const activeWorkspaces = enriched.filter((w) => w.isActive).length;
+
+		return Response.json({
+			summary: { totalWorkspaces, activeWorkspaces, totalRuns24h },
+			workspaces: enriched,
+		});
+	}
+
 	return {
 		// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: route dispatch table
 		fetch: async (req: Request): Promise<Response> => {
@@ -990,6 +1050,14 @@ export function createDashboardApi(deps: DashboardApiDeps) {
 					return await handleLearnings(url, workspaceId);
 				if (req.method === "GET" && pathname === "/api/skills")
 					return await handleSkills(url, workspaceId);
+
+				// ─── Superadmin (basic auth only) ───────────────
+				if (req.method === "GET" && pathname === "/api/superadmin") {
+					if (authCtx.mode !== "basic") {
+						return Response.json({ error: "Forbidden" }, { status: 403 });
+					}
+					return await handleSuperadmin();
+				}
 
 				return Response.json({ error: "Not found" }, { status: 404 });
 			} catch (err) {

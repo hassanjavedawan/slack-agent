@@ -11,6 +11,7 @@ import {
 	Plug,
 	Settings,
 	Shield,
+	ShieldCheck,
 	Wrench,
 } from "lucide-react";
 import { useEffect } from "react";
@@ -29,6 +30,7 @@ const adminNavigation = [
 	{ name: "Tasks", href: "/tasks", icon: Calendar },
 	{ name: "Integrations", href: "/integrations", icon: Plug },
 	{ name: "Settings", href: "/settings", icon: Settings },
+	{ name: "Superadmin", href: "/superadmin", icon: ShieldCheck },
 ];
 
 const userNavigation = [
@@ -70,7 +72,7 @@ export function AppLayout() {
 	const isAdmin = me?.isAdmin ?? false;
 	const navigation = isAdmin ? adminNavigation : userNavigation;
 
-	const adminOnlyPaths = ["/dashboard", "/overview", "/settings", "/settings/team"];
+	const adminOnlyPaths = ["/dashboard", "/overview", "/settings", "/settings/team", "/superadmin"];
 	if (me && !isAdmin && adminOnlyPaths.includes(location.pathname)) {
 		return <Navigate to="/runs" replace />;
 	}
