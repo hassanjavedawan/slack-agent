@@ -5,7 +5,7 @@ import type { SpacesService } from "./service.js";
 export const initAppProjectDefinition: LLMToolDefinition = {
 	name: "init_app_project",
 	description:
-		"Create a new Viktor Spaces app project. Sets up Convex backend, Vercel frontend, and database record.",
+		"Create a new Viktor Spaces app project. Sets up Convex backend (dev+prod), Vercel frontend, and database record. The app template uses React 19 + Vite with source files in src/ (not app/). Entry point is src/App.tsx, Convex functions go in convex/. The app's .env.local contains VIKTOR_SPACES_API_URL, VIKTOR_SPACES_PROJECT_NAME, and VIKTOR_SPACES_PROJECT_SECRET. When the app needs to call Viktor tools at runtime (AI, search, etc), Convex actions should POST to `${process.env.VIKTOR_SPACES_API_URL}/api/viktor-spaces/tools/call` with {project_name, project_secret, role, arguments} in the body. NEVER hardcode Viktor URLs — always read from environment variables.",
 	input_schema: {
 		type: "object",
 		properties: {
