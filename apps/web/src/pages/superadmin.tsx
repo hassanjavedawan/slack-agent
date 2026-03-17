@@ -11,23 +11,33 @@ function timeAgo(iso: string): string {
 	return `${days}d ago`;
 }
 
+const TOKEN_KEY = "ov_admin_token";
+
+function getToken(): string | null {
+	return localStorage.getItem(TOKEN_KEY);
+}
+
 async function fetchSuperadmin(): Promise<SuperadminData> {
-	const res = await fetch("/api/superadmin", { credentials: "include" });
+	const token = getToken();
+	const headers: Record<string, string> = {};
+	if (token) headers.Authorization = `Bearer ${token}`;
+	const res = await fetch("/api/superadmin", { headers });
 	if (!res.ok) throw new Error(`${res.status}`);
 	return res.json();
 }
 
-async function login(username: string, password: string): Promise<void> {
+async function login(username: string, password: string): Promise<string> {
 	const res = await fetch("/api/auth/login", {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		credentials: "include",
 		body: JSON.stringify({ username, password }),
 	});
-	if (!res.ok) {
-		const body = await res.json().catch(() => ({}));
-		throw new Error(body.error || "Login failed");
-	}
+	const body = await res.json().catch(() => ({}));
+	if (!res.ok) throw new Error(body.error || "Login failed");
+	if (!body.token) throw new Error("No token received");
+	localStorage.setItem(TOKEN_KEY, body.token);
+	return body.token;
 }
 
 export function SuperadminPage() {

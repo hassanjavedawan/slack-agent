@@ -84,7 +84,7 @@ export function createAuthMiddleware(deps: AuthMiddlewareConfig) {
 			"Set-Cookie": `ov_session=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=86400${secure}`,
 		});
 
-		return new Response(JSON.stringify({ success: true }), { headers });
+		return new Response(JSON.stringify({ success: true, token }), { headers });
 	}
 
 	async function authenticate(req: Request): Promise<AuthContext | null> {
@@ -112,9 +112,21 @@ export function createAuthMiddleware(deps: AuthMiddlewareConfig) {
 			}
 		}
 
+		// Try Bearer token
+		const authHeader = req.headers.get("authorization") ?? "";
+		if (authHeader.startsWith("Bearer ")) {
+			const payload = verifyJwt(authHeader.slice(7), jwtSecret);
+			if (payload) {
+				return {
+					username: payload.sub as string,
+					mode: payload.mode as "basic" | "slack-oauth",
+					slackUserId: payload.slackUserId as string | undefined,
+				};
+			}
+		}
+
 		// Try Basic Auth header
 		if (authMode === "basic") {
-			const authHeader = req.headers.get("authorization") ?? "";
 			if (authHeader.startsWith("Basic ")) {
 				const decoded = Buffer.from(authHeader.slice(6), "base64").toString();
 				const [username, password] = decoded.split(":");
