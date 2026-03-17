@@ -138,9 +138,7 @@ function Dashboard({ data }: { data: SuperadminData }) {
 							<tbody>
 								{workspaces.map((ws) => (
 									<tr key={ws.id} className="border-b border-slate-100">
-										<td className="py-2.5 pr-4 font-medium text-slate-900">
-											{ws.slackTeamName}
-										</td>
+										<td className="py-2.5 pr-4 font-medium text-slate-900">{ws.slackTeamName}</td>
 										<td className="py-2.5 pr-4 text-slate-600">{ws.members}</td>
 										<td className="py-2.5 pr-4 text-slate-600">{ws.totalRuns}</td>
 										<td className="py-2.5 pr-4 text-slate-600">{ws.totalThreads}</td>
