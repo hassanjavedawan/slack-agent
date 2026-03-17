@@ -112,6 +112,7 @@ describe("Viktor Spaces lifecycle integration", () => {
 				success: true,
 				deletedResources: ["convex_dev", "convex_prod"],
 			}),
+			setEnvVars: vi.fn().mockResolvedValue(undefined),
 		};
 
 		mockVercel = {

@@ -37,6 +37,7 @@ const mockConvex = {
 	deploy: vi.fn(),
 	query: vi.fn(),
 	deleteProject: vi.fn(),
+	setEnvVars: vi.fn().mockResolvedValue(undefined),
 };
 
 const mockVercel = {

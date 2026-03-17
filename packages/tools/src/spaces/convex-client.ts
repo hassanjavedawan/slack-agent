@@ -80,6 +80,16 @@ export class ConvexClient {
 		return { success: true, output };
 	}
 
+	async setEnvVars(
+		sandboxPath: string,
+		deployKey: string,
+		vars: Record<string, string>,
+	): Promise<void> {
+		for (const [key, value] of Object.entries(vars)) {
+			await this.exec("npx", ["convex", "env", "set", key, value], sandboxPath, deployKey);
+		}
+	}
+
 	async query(
 		deploymentUrl: string,
 		functionName: string,

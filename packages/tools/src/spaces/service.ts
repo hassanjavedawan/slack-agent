@@ -145,6 +145,14 @@ export class SpacesService {
 			].join("\n"),
 		);
 
+		const spacesEnvVars = {
+			VIKTOR_SPACES_API_URL: this.spacesApiUrl ?? "",
+			VIKTOR_SPACES_PROJECT_NAME: name,
+			VIKTOR_SPACES_PROJECT_SECRET: projectSecret,
+		};
+		await this.convex.setEnvVars(sandboxPath, convexResult.devDeployKey, spacesEnvVars);
+		await this.convex.setEnvVars(sandboxPath, convexResult.prodDeployKey, spacesEnvVars);
+
 		return {
 			success: true,
 			projectName: name,
@@ -179,6 +187,11 @@ export class SpacesService {
 		const deployKey = convexEnv === "dev" ? space.convexDevDeployKey : space.convexProdDeployKey;
 
 		try {
+			await this.convex.setEnvVars(space.sandboxPath, deployKey ?? "", {
+				VIKTOR_SPACES_API_URL: this.spacesApiUrl ?? "",
+				VIKTOR_SPACES_PROJECT_NAME: space.name,
+				VIKTOR_SPACES_PROJECT_SECRET: space.projectSecret,
+			});
 			await this.convex.deploy(space.sandboxPath, convexEnv, deployKey ?? "");
 			await this.buildFrontend(space.sandboxPath);
 
