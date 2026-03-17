@@ -78,6 +78,8 @@ export const chat = action({
 
 ### Usage from React frontend:
 
+IMPORTANT: viktorTools.callTool is an ACTION, not a mutation. Always use `useAction`, never `useMutation`.
+
 ```typescript
 import { useAction } from "convex/react";
 import { api } from "../convex/_generated/api";
