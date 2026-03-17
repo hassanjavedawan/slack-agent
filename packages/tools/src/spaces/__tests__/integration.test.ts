@@ -124,7 +124,6 @@ describe("Viktor Spaces lifecycle integration", () => {
 				.fn()
 				.mockImplementation((_buildDir: string, environment: "preview" | "production") =>
 					Promise.resolve({
-						deploymentId: `dpl_${environment}`,
 						url: `https://${PROJECT_NAME}-${environment}.vercel.app`,
 					}),
 				),

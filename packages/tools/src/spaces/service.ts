@@ -112,7 +112,7 @@ export class SpacesService {
 		mkdirSync(sandboxPath, { recursive: true });
 		cpSync(templateDir, sandboxPath, { recursive: true });
 
-		const convexResult = await this.convex.createProject(name, sandboxPath);
+		const convexResult = await this.convex.createProject(name);
 		const vercelResult = await this.vercel.createProject(name);
 		const domain = await this.vercel.setDomain(vercelResult.projectId, hexId, name);
 
@@ -145,13 +145,9 @@ export class SpacesService {
 			].join("\n"),
 		);
 
-		const spacesEnvVars = {
-			VIKTOR_SPACES_API_URL: this.spacesApiUrl ?? "",
-			VIKTOR_SPACES_PROJECT_NAME: name,
-			VIKTOR_SPACES_PROJECT_SECRET: projectSecret,
-		};
-		await this.convex.setEnvVars(sandboxPath, convexResult.devDeployKey, spacesEnvVars);
-		await this.convex.setEnvVars(sandboxPath, convexResult.prodDeployKey, spacesEnvVars);
+		const envVars = this.spacesEnvVars(name, projectSecret);
+		await this.convex.setEnvVars(sandboxPath, convexResult.devDeployKey, envVars);
+		await this.convex.setEnvVars(sandboxPath, convexResult.prodDeployKey, envVars);
 
 		return {
 			success: true,
@@ -187,11 +183,11 @@ export class SpacesService {
 		const deployKey = convexEnv === "dev" ? space.convexDevDeployKey : space.convexProdDeployKey;
 
 		try {
-			await this.convex.setEnvVars(space.sandboxPath, deployKey ?? "", {
-				VIKTOR_SPACES_API_URL: this.spacesApiUrl ?? "",
-				VIKTOR_SPACES_PROJECT_NAME: space.name,
-				VIKTOR_SPACES_PROJECT_SECRET: space.projectSecret,
-			});
+			await this.convex.setEnvVars(
+				space.sandboxPath,
+				deployKey ?? "",
+				this.spacesEnvVars(space.name, space.projectSecret),
+			);
 			await this.convex.deploy(space.sandboxPath, convexEnv, deployKey ?? "");
 			await this.buildFrontend(space.sandboxPath);
 
@@ -338,6 +334,14 @@ export class SpacesService {
 				resolve();
 			});
 		});
+	}
+
+	private spacesEnvVars(name: string, secret: string): Record<string, string> {
+		return {
+			VIKTOR_SPACES_API_URL: this.spacesApiUrl ?? "",
+			VIKTOR_SPACES_PROJECT_NAME: name,
+			VIKTOR_SPACES_PROJECT_SECRET: secret,
+		};
 	}
 
 	async findBySecret(

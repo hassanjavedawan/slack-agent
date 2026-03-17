@@ -87,7 +87,6 @@ describe("SpacesService", () => {
 		expect(mockPrisma.space.create).toHaveBeenCalledOnce();
 		expect(mockConvex.createProject).toHaveBeenCalledWith(
 			"test",
-			"/data/workspaces/ws1/viktor-spaces/test",
 		);
 	});
 

@@ -39,7 +39,7 @@ export class ConvexClient {
 		this.teamId = config.teamId;
 	}
 
-	async createProject(projectName: string, _sandboxPath: string): Promise<ProjectResult> {
+	async createProject(projectName: string): Promise<ProjectResult> {
 		const project = await this.api(`/v1/teams/${this.teamId}/create_project`, {
 			projectName,
 		});

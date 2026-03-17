@@ -12,7 +12,6 @@ interface CreateProjectResult {
 }
 
 interface DeployResult {
-	deploymentId: string;
 	url: string;
 }
 
@@ -55,7 +54,7 @@ export class VercelClient {
 		const output = await this.exec("npx", args, buildDir);
 		const url = output.trim().split("\n").pop() ?? "";
 
-		return { deploymentId: "", url };
+		return { url };
 	}
 
 	async setDomain(projectId: string, hexId: string, projectName: string): Promise<string> {

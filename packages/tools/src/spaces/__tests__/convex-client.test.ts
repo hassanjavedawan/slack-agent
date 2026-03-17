@@ -49,7 +49,7 @@ describe("ConvexClient", () => {
 				json: async () => ({ deployKey: "prod:happy-animal-101|key2" }),
 			});
 
-		const result = await client.createProject("test-app", "/tmp/test-app");
+		const result = await client.createProject("test-app");
 		expect(result.projectId).toBe("1822923");
 		expect(result.devUrl).toBe("https://happy-animal-100.convex.cloud");
 		expect(result.prodUrl).toBe("https://happy-animal-101.convex.cloud");
@@ -150,6 +150,6 @@ describe("ConvexClient", () => {
 			text: async () => "Unauthorized",
 		});
 
-		await expect(client.createProject("test", "/tmp")).rejects.toThrow("Convex API");
+		await expect(client.createProject("test")).rejects.toThrow("Convex API");
 	});
 });
