@@ -16,6 +16,7 @@ interface GeminiPart {
 	text?: string;
 	functionCall?: { name: string; args: Record<string, unknown> };
 	functionResponse?: { name: string; response: Record<string, unknown> };
+	thoughtSignature?: string;
 }
 
 interface GeminiContent {
@@ -117,7 +118,12 @@ function convertAssistantBlocks(
 		if (block.type === "text" && block.text) {
 			parts.push({ text: block.text });
 		} else if (block.type === "tool_use") {
-			parts.push({ functionCall: { name: block.name, args: block.input } });
+			const part: GeminiPart = { functionCall: { name: block.name, args: block.input } };
+			const sig = block.providerMetadata?.thoughtSignature;
+			if (typeof sig === "string") {
+				part.thoughtSignature = sig;
+			}
+			parts.push(part);
 		}
 	}
 	return parts;
@@ -238,12 +244,16 @@ function parseResponseContent(parts: GeminiPart[]): {
 		}
 		if (part.functionCall) {
 			hasFunctionCalls = true;
-			content.push({
+			const block: ContentBlock & { type: "tool_use" } = {
 				type: "tool_use",
 				id: generateCallId(),
 				name: part.functionCall.name,
 				input: part.functionCall.args ?? {},
-			});
+			};
+			if (part.thoughtSignature) {
+				block.providerMetadata = { thoughtSignature: part.thoughtSignature };
+			}
+			content.push(block);
 		}
 	}
 

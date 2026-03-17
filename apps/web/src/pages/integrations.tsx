@@ -13,6 +13,7 @@ import {
 
 const PAGE_SIZE = 100;
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: React component with infinite scroll, search, connect/disconnect mutations, and conditional rendering branches
 export function IntegrationsPage() {
 	const queryClient = useQueryClient();
 	const [search, setSearch] = useState("");
@@ -153,6 +154,7 @@ export function IntegrationsPage() {
 					) : (
 						<>
 							<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+								{/* biome-ignore lint/complexity/noExcessiveCognitiveComplexity: integration card rendering with connected state, tool counts, and action branching */}
 								{sorted.map((app) => {
 									const connected = connectedSlugs.has(app.slug);
 									const toolCount = toolCounts[app.slug] ?? 0;

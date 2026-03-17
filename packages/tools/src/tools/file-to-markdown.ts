@@ -154,6 +154,7 @@ async function runProcess(
 			}
 		});
 
+		// biome-ignore lint/suspicious/noExplicitAny: spawn return type varies across runtimes
 		(child as any).on("close", (code: number | null) => {
 			clearTimeout(timer);
 			if (killed) {
@@ -171,6 +172,7 @@ async function runProcess(
 			});
 		});
 
+		// biome-ignore lint/suspicious/noExplicitAny: spawn return type varies across runtimes
 		(child as any).on("error", (err: NodeJS.ErrnoException) => {
 			clearTimeout(timer);
 			resolve({

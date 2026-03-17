@@ -23,6 +23,7 @@ export const submitPermissionRequestDefinition: LLMToolDefinition = {
 };
 
 export function createSubmitPermissionRequestExecutor(prisma: PrismaClient): ToolExecutor {
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: permission request evaluation with multi-level policy checks and approval branching
 	return async (args) => {
 		const requestId = args.request_id as string;
 		if (!requestId) {

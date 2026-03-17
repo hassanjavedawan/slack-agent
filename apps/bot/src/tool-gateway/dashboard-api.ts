@@ -745,6 +745,7 @@ export function createDashboardApi(deps: DashboardApiDeps) {
 		return Response.json({ data: threads, total, page, limit });
 	}
 
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: aggregates tool call stats across multiple dimensions with nested grouping logic
 	async function handleToolsStats(workspaceId: string | null): Promise<Response> {
 		const workspace = await getWorkspace(workspaceId);
 		const toolCalls = await prisma.toolCall.findMany({

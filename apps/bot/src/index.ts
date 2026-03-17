@@ -148,6 +148,7 @@ function createEventDeduplicator(ttlMs = 300_000) {
 
 // ─── Main ───────────────────────────────────────────────
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: top-level orchestration of all bot subsystems and server setup
 async function main(): Promise<void> {
 	const config = loadConfig();
 	const mode = config.DEPLOYMENT_MODE;
@@ -486,6 +487,7 @@ async function main(): Promise<void> {
 		}
 	}
 
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: event routing with deduplication, thread resolution, and multi-step agent dispatch
 	const onEvent: EventHandler = async (event, connection, say) => {
 		// Deduplication
 		const dedupeKey = `${event.channel}:${event.ts}`;
@@ -653,6 +655,7 @@ async function main(): Promise<void> {
 		}
 	};
 
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: interaction handler branching across multiple block action types and payloads
 	const onInteraction: InteractionHandler = async (interaction, connection) => {
 		if (interaction.type !== "block_actions") return;
 
@@ -859,6 +862,7 @@ async function main(): Promise<void> {
 
 	const gatewayServer = Bun.serve({
 		port: gatewayPort,
+		// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: HTTP request router handling all gateway API routes and auth
 		fetch: async (req: Request) => {
 			const url = new URL(req.url, "http://localhost");
 

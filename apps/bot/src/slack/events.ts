@@ -101,6 +101,7 @@ async function isBotInThread(
 	return existing !== null;
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: event routing with many conditional cases for message types, bot filtering, and thread handling
 async function handleMessage(
 	ctx: BotContext,
 	msg: SlackMessage,

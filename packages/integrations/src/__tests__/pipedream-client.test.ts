@@ -27,6 +27,7 @@ describe("PipedreamClient", () => {
 	});
 
 	function setupFetch() {
+		// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: test fetch mock with many URL-matched response branches covering all API endpoints
 		const fetchMock = mockFetch((url, init) => {
 			if (url.includes("/oauth/token")) {
 				return { access_token: "test-access-token" };

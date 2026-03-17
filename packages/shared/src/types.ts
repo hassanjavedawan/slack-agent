@@ -38,6 +38,7 @@ export interface ToolUseBlock {
 	id: string;
 	name: string;
 	input: Record<string, unknown>;
+	providerMetadata?: Record<string, unknown>;
 }
 
 export interface ToolResultBlock {

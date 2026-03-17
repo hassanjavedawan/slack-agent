@@ -97,6 +97,7 @@ export function createOAuthHandler(deps: OAuthHandlerConfig) {
 		return Response.redirect(authorizeUrl.toString(), 302);
 	}
 
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: multi-step OAuth callback flow with state validation, token exchange, and workspace upsert
 	async function handleCallback(req: Request): Promise<Response> {
 		const url = new URL(req.url, baseUrl);
 		const code = url.searchParams.get("code");

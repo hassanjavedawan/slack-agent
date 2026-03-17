@@ -68,6 +68,7 @@ describe("Viktor Spaces lifecycle integration", () => {
 		deploy: ReturnType<typeof vi.fn>;
 		query: ReturnType<typeof vi.fn>;
 		deleteProject: ReturnType<typeof vi.fn>;
+		setEnvVars: ReturnType<typeof vi.fn>;
 	};
 
 	let mockVercel: {

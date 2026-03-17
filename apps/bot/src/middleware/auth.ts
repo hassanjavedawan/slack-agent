@@ -87,6 +87,7 @@ export function createAuthMiddleware(deps: AuthMiddlewareConfig) {
 		return new Response(JSON.stringify({ success: true, token }), { headers });
 	}
 
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: multi-step authentication flow covering Bearer, Basic, cookie, and API key strategies
 	async function authenticate(req: Request): Promise<AuthContext | null> {
 		// Try Authorization header first (Bearer or Basic)
 		const authHeader = req.headers.get("authorization") ?? "";

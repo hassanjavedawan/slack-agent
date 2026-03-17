@@ -55,6 +55,7 @@ async function runCommand(
 			}
 		});
 
+		// biome-ignore lint/suspicious/noExplicitAny: spawn return type varies across runtimes
 		(child as any).on("close", (code: number | null) => {
 			clearTimeout(timer);
 			if (killed) {
@@ -75,6 +76,7 @@ async function runCommand(
 			resolve({ output, durationMs: 0 });
 		});
 
+		// biome-ignore lint/suspicious/noExplicitAny: spawn return type varies across runtimes
 		(child as any).on("error", (err: Error) => {
 			clearTimeout(timer);
 			resolve({ output: null, durationMs: 0, error: `Failed to spawn process: ${err.message}` });

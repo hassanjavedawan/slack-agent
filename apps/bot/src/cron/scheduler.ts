@@ -141,6 +141,7 @@ export class CronScheduler {
 		await this.executeJob({ ...job, agentPrompt }, true);
 	}
 
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: complex cron job dispatch with multiple job types and condition evaluation
 	private async executeJob(job: CronJobRecord, skipCondition = false): Promise<void> {
 		if (job.type === "SCRIPT") {
 			await this.executeScriptJob(job, skipCondition);

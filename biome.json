@@ -54,6 +54,7 @@
 			".omc",
 			".claude",
 			"packages/db/src/generated",
+			"packages/tools/src/spaces/template",
 			"*.gen.ts",
 			"bun.lock"
 		]

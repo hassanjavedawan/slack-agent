@@ -95,6 +95,7 @@ export const grepExecutor: ToolExecutor = async (args, ctx) => {
 			stderr += data.toString();
 		});
 
+		// biome-ignore lint/suspicious/noExplicitAny: spawn return type varies across runtimes
 		(child as any).on("close", (code: number | null) => {
 			const prefix = ctx.workspaceDir.endsWith("/") ? ctx.workspaceDir : `${ctx.workspaceDir}/`;
 			const content = stdout.replace(new RegExp(escapeRegex(prefix), "g"), "");
@@ -125,6 +126,7 @@ export const grepExecutor: ToolExecutor = async (args, ctx) => {
 			});
 		});
 
+		// biome-ignore lint/suspicious/noExplicitAny: spawn return type varies across runtimes
 		(child as any).on("error", (err: Error) => {
 			resolve({
 				output: null,

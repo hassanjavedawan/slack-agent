@@ -109,6 +109,7 @@ export const coworkerListSlackChannelsDefinition: LLMToolDefinition = {
 };
 
 export function createCoworkerListSlackChannelsExecutor(slackToken: string): ToolExecutor {
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Slack channel listing with pagination, filtering, and member lookup across multiple API calls
 	return async (args): Promise<ToolResult> => {
 		try {
 			const types =

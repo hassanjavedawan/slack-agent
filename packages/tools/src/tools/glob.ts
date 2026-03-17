@@ -54,6 +54,7 @@ export const globExecutor: ToolExecutor = async (args, ctx) => {
 			stderr += data.toString();
 		});
 
+		// biome-ignore lint/suspicious/noExplicitAny: spawn return type varies across runtimes
 		(child as any).on("close", (code: number | null) => {
 			if (code !== 0 && stderr.trim()) {
 				resolve({ output: null, durationMs: 0, error: `Glob failed: ${stderr.trim()}` });
@@ -79,6 +80,7 @@ export const globExecutor: ToolExecutor = async (args, ctx) => {
 			});
 		});
 
+		// biome-ignore lint/suspicious/noExplicitAny: spawn return type varies across runtimes
 		(child as any).on("error", (err: Error) => {
 			resolve({
 				output: null,

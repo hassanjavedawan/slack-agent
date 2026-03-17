@@ -607,6 +607,7 @@ function SelfDrivenPanel() {
 				<div style={{ marginLeft: "auto", fontSize: 10, color: "#A8A49E" }}>Self-assigned</div>
 			</div>
 			<div style={{ flex: 1 }}>
+				{/* biome-ignore lint/complexity/noExcessiveCognitiveComplexity: task card rendering with multi-level conditional styling and nested layout logic */}
 				{tasks.map((t, i) => (
 					<div
 						key={t.label}
