@@ -94,7 +94,7 @@ export default function Navbar() {
 						Star
 					</a>
 					<a
-						href="/hire"
+						href="/slack/oauth/install"
 						className="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium hover:opacity-80 transition-opacity"
 						style={{ background: "#111", color: "#fff" }}
 					>
@@ -145,7 +145,7 @@ export default function Navbar() {
 							Sign in
 						</a>
 						<a
-							href="/hire"
+							href="/slack/oauth/install"
 							className="inline-flex items-center px-4 py-2 rounded-full bg-[#111] text-white text-sm font-medium hover:bg-[#333] transition-colors"
 						>
 							Hire now. Free
