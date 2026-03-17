@@ -37,6 +37,7 @@ import {
 } from "@openviktor/tools";
 import type { SpawnAgentRunParams } from "@openviktor/tools";
 import type { RegistryConfig, ToolBackend } from "@openviktor/tools";
+import { ConvexClient, SpacesService, VercelClient } from "@openviktor/tools/spaces";
 import { LLMGateway } from "./agent/gateway.js";
 import { AnthropicProvider } from "./agent/providers/anthropic.js";
 import { AgentRunner } from "./agent/runner.js";
@@ -78,12 +79,11 @@ import {
 import { createOAuthHandler } from "./slack/oauth.js";
 import { resolveMember, resolveUserMentions, resolveWorkspace } from "./slack/resolve.js";
 import type { SlackClient } from "./slack/resolve.js";
+import { createSpacesApi } from "./spaces/api.js";
 import { createConcurrencyLimiter } from "./thread/concurrency.js";
 import { fetchActiveThreads } from "./thread/index.js";
 import { ThreadLock } from "./thread/lock.js";
 import { StaleThreadDetector } from "./thread/stale.js";
-import { ConvexClient, SpacesService, VercelClient } from "@openviktor/tools/spaces";
-import { createSpacesApi } from "./spaces/api.js";
 import { createDashboardApi } from "./tool-gateway/dashboard-api.js";
 import { createToolGateway, registerWorkspaceToken } from "./tool-gateway/server.js";
 import { UsageLimiter } from "./usage/limiter.js";
