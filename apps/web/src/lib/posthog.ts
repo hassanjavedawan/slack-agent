@@ -10,6 +10,9 @@ export function initPostHog() {
 		api_host: posthogHost,
 		capture_pageview: false, // we capture manually on route change
 		capture_pageleave: true,
+		session_recording: {
+			recordCrossOriginIframes: true,
+		},
 	});
 }
 
