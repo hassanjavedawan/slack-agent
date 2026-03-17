@@ -2,19 +2,19 @@ import { LLMError } from "@openviktor/shared";
 import type { EnvConfig, LLMResponse } from "@openviktor/shared";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LLMGateway, extractText } from "../gateway.js";
+import { createProvider } from "../providers/index.js";
 
 const mockChat = vi.fn();
 
 vi.mock("../providers/index.js", () => ({
 	resolveProvider: vi.fn((model: string) => {
+		if (model.startsWith("ollama/")) return "ollama";
 		if (model.startsWith("claude-")) return "anthropic";
 		if (model.startsWith("gpt-")) return "openai";
 		if (model.startsWith("gemini-")) return "google";
 		throw new LLMError(`Unknown model: ${model}`);
 	}),
-	createProvider: vi.fn(() => ({
-		chat: mockChat,
-	})),
+	createProvider: vi.fn(() => ({ chat: mockChat })),
 }));
 
 function makeConfig(overrides: Partial<EnvConfig> = {}): EnvConfig {
@@ -53,6 +53,7 @@ function makeResponse(overrides: Partial<LLMResponse> = {}): LLMResponse {
 describe("LLMGateway", () => {
 	beforeEach(() => {
 		mockChat.mockReset();
+		vi.mocked(createProvider).mockClear();
 	});
 
 	it("routes chat calls through the resolved provider", async () => {
@@ -128,6 +129,25 @@ describe("LLMGateway", () => {
 
 	it("throws for unknown model prefixes", () => {
 		expect(() => new LLMGateway(makeConfig({ DEFAULT_MODEL: "llama-3" }))).toThrow(LLMError);
+	});
+
+	it("routes ollama models to the ollama provider", async () => {
+		mockChat.mockResolvedValue(makeResponse({ model: "llama3.2" }));
+		const config = makeConfig({ DEFAULT_MODEL: "ollama/llama3.2" });
+		const gateway = new LLMGateway(config);
+
+		const result = await gateway.chat([{ role: "user", content: "Hello" }]);
+
+		expect(result.content[0]).toEqual({ type: "text", text: "Hi" });
+		expect(gateway.getModel()).toBe("ollama/llama3.2");
+		expect(createProvider).toHaveBeenCalledWith("ollama", config);
+		expect(mockChat).toHaveBeenCalledWith(expect.objectContaining({ model: "ollama/llama3.2" }));
+	});
+
+	it("routes anthropic models to the anthropic provider", () => {
+		const config = makeConfig({ DEFAULT_MODEL: "claude-sonnet-4-20250514" });
+		new LLMGateway(config);
+		expect(createProvider).toHaveBeenCalledWith("anthropic", config);
 	});
 });
 

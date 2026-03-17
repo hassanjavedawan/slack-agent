@@ -6,7 +6,7 @@
 
 - Docker and Docker Compose
 - A Slack workspace (admin permissions)
-- An Anthropic API key
+- An LLM provider: Anthropic API key **or** a local Ollama instance
 
 ### 1. Create Slack App (one-click)
 
@@ -117,8 +117,8 @@ SLACK_BOT_TOKEN=xoxb-...
 SLACK_APP_TOKEN=xapp-...
 SLACK_SIGNING_SECRET=...
 
-# LLM
-ANTHROPIC_API_KEY=sk-ant-...
+# LLM — pick one provider
+ANTHROPIC_API_KEY=sk-ant-...    # For Claude models (default)
 
 # Dashboard
 DASHBOARD_PASSWORD=your-secure-password
@@ -132,6 +132,31 @@ GOOGLE_AI_API_KEY=...           # For Google AI model access
 GITHUB_TOKEN=ghp_...            # For GitHub integration tools
 LOG_LEVEL=info                  # debug, info, warn, error
 ENABLE_DASHBOARD=true           # Set to false to disable dashboard
+```
+
+### Using Ollama (local LLM)
+
+Run OpenViktor entirely offline with [Ollama](https://ollama.com), [vLLM](https://docs.vllm.ai), [LM Studio](https://lmstudio.ai), or any OpenAI-compatible server:
+
+```bash
+# 1. Install and start Ollama
+curl -fsSL https://ollama.com/install.sh | sh
+ollama pull llama3.2       # or any model with tool-calling support
+
+# 2. Configure .env — no API key needed
+DEFAULT_MODEL=ollama/llama3.2
+# OLLAMA_BASE_URL=http://localhost:11434  # default, change for remote servers
+```
+
+The `ollama/` prefix tells OpenViktor to route through the OpenAI-compatible endpoint. No `ANTHROPIC_API_KEY` is needed.
+
+Models with tool-calling support (recommended): `llama3.2` (3B+), `qwen2.5`, `mistral`, `command-r`.
+
+For remote servers or vLLM, set `OLLAMA_BASE_URL` to the server address:
+
+```env
+DEFAULT_MODEL=ollama/meta-llama/Llama-3.2-3B-Instruct
+OLLAMA_BASE_URL=http://your-vllm-server:8000
 ```
 
 ### Deploy
@@ -222,8 +247,9 @@ docker compose -f docker/docker-compose.selfhosted.yml up -d
 
 ### LLM errors
 
-1. Verify `ANTHROPIC_API_KEY` is valid
-2. Check API usage limits at [console.anthropic.com](https://console.anthropic.com)
+1. Verify your API key is valid for the configured provider
+2. For Ollama: check that Ollama is running (`curl http://localhost:11434/api/tags`) and the model is pulled
+3. For Anthropic: check API usage limits at [console.anthropic.com](https://console.anthropic.com)
 
 ### Dashboard login issues
 

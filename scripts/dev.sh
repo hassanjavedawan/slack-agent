@@ -17,7 +17,7 @@ if [ ! -f ".env" ]; then
     echo "    - SLACK_BOT_TOKEN"
     echo "    - SLACK_APP_TOKEN"
     echo "    - SLACK_SIGNING_SECRET"
-    echo "    - ANTHROPIC_API_KEY"
+    echo "    - ANTHROPIC_API_KEY (or set DEFAULT_MODEL=ollama/<model> for local LLM)"
     echo ""
     exit 1
   fi

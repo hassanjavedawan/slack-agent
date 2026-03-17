@@ -54,13 +54,42 @@ const PRICING: Record<string, ModelPricing> = {
 		cacheWritePerMTok: 0,
 		cacheReadPerMTok: 0,
 	},
+	"gpt-4.1": {
+		inputPerMTok: 2,
+		outputPerMTok: 8,
+		cacheWritePerMTok: 0,
+		cacheReadPerMTok: 0,
+	},
+	"gpt-4o": {
+		inputPerMTok: 2.5,
+		outputPerMTok: 10,
+		cacheWritePerMTok: 0,
+		cacheReadPerMTok: 0,
+	},
+	"gpt-4o-mini": {
+		inputPerMTok: 0.15,
+		outputPerMTok: 0.6,
+		cacheWritePerMTok: 0,
+		cacheReadPerMTok: 0,
+	},
 };
 
+const ZERO_PRICING: ModelPricing = {
+	inputPerMTok: 0,
+	outputPerMTok: 0,
+	cacheWritePerMTok: 0,
+	cacheReadPerMTok: 0,
+};
+
+const SORTED_PRICING = Object.entries(PRICING).sort(([a], [b]) => b.length - a.length);
+
 function findPricing(model: string): ModelPricing {
-	for (const [prefix, pricing] of Object.entries(PRICING)) {
+	if (model.startsWith("ollama/")) return ZERO_PRICING;
+	for (const [prefix, pricing] of SORTED_PRICING) {
 		if (model.startsWith(prefix)) return pricing;
 	}
 	if (model.startsWith("gemini-")) return PRICING["gemini-2.0-flash"];
+	if (model.startsWith("gpt-")) return PRICING["gpt-4o"];
 	return PRICING["claude-sonnet-4"];
 }
 

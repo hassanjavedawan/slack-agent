@@ -39,6 +39,7 @@ const envSchema = z
 		ANTHROPIC_API_KEY: z.string().min(1).optional(),
 		OPENAI_API_KEY: z.string().optional(),
 		GOOGLE_AI_API_KEY: z.string().optional(),
+		OLLAMA_BASE_URL: z.string().url().optional(),
 		DEFAULT_MODEL: z.string().default("claude-sonnet-4-20250514"),
 		MAX_TOKENS: z.coerce.number().default(4096),
 
@@ -126,29 +127,38 @@ const envSchema = z
 				"SLACK_APP_TOKEN",
 				"SLACK_APP_TOKEN is required in selfhosted mode",
 			);
-			requireField(
-				ctx,
-				data.ANTHROPIC_API_KEY,
-				"ANTHROPIC_API_KEY",
-				"ANTHROPIC_API_KEY is required in selfhosted mode",
-			);
 		}
 
-		if (mode === "managed") {
+		{
 			const model = data.DEFAULT_MODEL;
-			if (model.startsWith("gemini-") && !data.GOOGLE_AI_API_KEY) {
-				ctx.addIssue({
-					code: z.ZodIssueCode.custom,
-					message: "GOOGLE_AI_API_KEY is required when DEFAULT_MODEL is a Gemini model",
-					path: ["GOOGLE_AI_API_KEY"],
-				});
-			}
-			if (model.startsWith("claude-") && !data.ANTHROPIC_API_KEY) {
-				ctx.addIssue({
-					code: z.ZodIssueCode.custom,
-					message: "ANTHROPIC_API_KEY is required when DEFAULT_MODEL is a Claude model",
-					path: ["ANTHROPIC_API_KEY"],
-				});
+			if (model.startsWith("claude-")) {
+				requireField(
+					ctx,
+					data.ANTHROPIC_API_KEY,
+					"ANTHROPIC_API_KEY",
+					"ANTHROPIC_API_KEY is required when DEFAULT_MODEL is a Claude model",
+				);
+			} else if (model.startsWith("gpt-")) {
+				requireField(
+					ctx,
+					data.OPENAI_API_KEY,
+					"OPENAI_API_KEY",
+					"OPENAI_API_KEY is required when DEFAULT_MODEL is an OpenAI model",
+				);
+			} else if (model.startsWith("gemini-")) {
+				requireField(
+					ctx,
+					data.GOOGLE_AI_API_KEY,
+					"GOOGLE_AI_API_KEY",
+					"GOOGLE_AI_API_KEY is required when DEFAULT_MODEL is a Gemini model",
+				);
+			} else if (!model.startsWith("ollama/")) {
+				requireField(
+					ctx,
+					data.ANTHROPIC_API_KEY,
+					"ANTHROPIC_API_KEY",
+					"ANTHROPIC_API_KEY is required (set DEFAULT_MODEL=ollama/<model> to use a local LLM)",
+				);
 			}
 		}
 

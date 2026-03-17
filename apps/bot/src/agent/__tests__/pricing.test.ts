@@ -89,4 +89,47 @@ describe("calculateCostCents", () => {
 		);
 		expect(cost).toBe(1800);
 	});
+
+	it("returns zero cost for ollama models", () => {
+		const cost = calculateCostCents(
+			"ollama/llama3.2",
+			usage({ inputTokens: 1_000_000, outputTokens: 1_000_000 }),
+		);
+		expect(cost).toBe(0);
+	});
+
+	it("returns zero cost for any ollama model variant", () => {
+		const cost = calculateCostCents(
+			"ollama/deepseek-r1:7b",
+			usage({ inputTokens: 500_000, outputTokens: 200_000 }),
+		);
+		expect(cost).toBe(0);
+	});
+
+	it("calculates cost for GPT-4o", () => {
+		const cost = calculateCostCents(
+			"gpt-4o-2024-08-06",
+			usage({ inputTokens: 1_000_000, outputTokens: 1_000_000 }),
+		);
+		// $2.50 input + $10 output = $12.50 = 1250 cents
+		expect(cost).toBe(1250);
+	});
+
+	it("calculates cost for GPT-4o-mini", () => {
+		const cost = calculateCostCents(
+			"gpt-4o-mini",
+			usage({ inputTokens: 1_000_000, outputTokens: 1_000_000 }),
+		);
+		// $0.15 input + $0.60 output = $0.75 = 75 cents
+		expect(cost).toBe(75);
+	});
+
+	it("calculates cost for GPT-4.1", () => {
+		const cost = calculateCostCents(
+			"gpt-4.1-2025-04-14",
+			usage({ inputTokens: 1_000_000, outputTokens: 1_000_000 }),
+		);
+		// $2 input + $8 output = $10 = 1000 cents
+		expect(cost).toBe(1000);
+	});
 });
