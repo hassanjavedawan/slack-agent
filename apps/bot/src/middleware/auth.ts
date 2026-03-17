@@ -88,31 +88,7 @@ export function createAuthMiddleware(deps: AuthMiddlewareConfig) {
 	}
 
 	async function authenticate(req: Request): Promise<AuthContext | null> {
-		// Try JWT cookie first
-		const cookie = req.headers.get("cookie") ?? "";
-		const sessionMatch = cookie.match(/ov_session=([^\s;]+)/);
-		if (sessionMatch) {
-			const payload = verifyJwt(sessionMatch[1], jwtSecret);
-			if (payload) {
-				const ctx: AuthContext = {
-					username: payload.sub as string,
-					mode: payload.mode as "basic" | "slack-oauth",
-					slackUserId: payload.slackUserId as string | undefined,
-				};
-
-				if (ctx.mode === "slack-oauth" && ctx.slackUserId) {
-					const members = await prisma.member.findMany({
-						where: { slackUserId: ctx.slackUserId },
-						select: { workspaceId: true },
-					});
-					ctx.workspaceIds = members.map((m) => m.workspaceId);
-				}
-
-				return ctx;
-			}
-		}
-
-		// Try Bearer token
+		// Try Authorization header first (Bearer or Basic)
 		const authHeader = req.headers.get("authorization") ?? "";
 		if (authHeader.startsWith("Bearer ")) {
 			const payload = verifyJwt(authHeader.slice(7), jwtSecret);
@@ -133,6 +109,30 @@ export function createAuthMiddleware(deps: AuthMiddlewareConfig) {
 				if (username === config.DASHBOARD_USERNAME && password === config.DASHBOARD_PASSWORD) {
 					return { username, mode: "basic" };
 				}
+			}
+		}
+
+		// Try JWT cookie
+		const cookie = req.headers.get("cookie") ?? "";
+		const sessionMatch = cookie.match(/ov_session=([^\s;]+)/);
+		if (sessionMatch) {
+			const payload = verifyJwt(sessionMatch[1], jwtSecret);
+			if (payload) {
+				const ctx: AuthContext = {
+					username: payload.sub as string,
+					mode: payload.mode as "basic" | "slack-oauth",
+					slackUserId: payload.slackUserId as string | undefined,
+				};
+
+				if (ctx.mode === "slack-oauth" && ctx.slackUserId) {
+					const members = await prisma.member.findMany({
+						where: { slackUserId: ctx.slackUserId },
+						select: { workspaceId: true },
+					});
+					ctx.workspaceIds = members.map((m) => m.workspaceId);
+				}
+
+				return ctx;
 			}
 		}
 
