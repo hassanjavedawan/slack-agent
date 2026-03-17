@@ -8,6 +8,7 @@ locals {
     "encryption-key",
     "google-ai-api-key",
     "database-url",
+    "dashboard-password",
   ]
 }
 
