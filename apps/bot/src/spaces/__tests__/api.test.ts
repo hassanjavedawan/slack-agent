@@ -1,3 +1,6 @@
+import type { Logger } from "@openviktor/shared";
+import type { ToolExecutionContext, ToolRegistry } from "@openviktor/tools";
+import type { SpacesService } from "@openviktor/tools/spaces";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@openviktor/tools", async (importOriginal) => {
@@ -10,31 +13,28 @@ vi.mock("@openviktor/tools", async (importOriginal) => {
 
 import { createSpacesApi } from "../api.js";
 
-const mockService = {
+const mockService: Pick<SpacesService, "findBySecret"> = {
 	findBySecret: vi.fn(),
 };
 
-const mockRegistry = {
+const mockRegistry: Pick<ToolRegistry, "resolve" | "execute" | "isLocalOnly"> = {
 	resolve: vi.fn(),
 	execute: vi.fn(),
 	isLocalOnly: vi.fn().mockReturnValue(true),
 };
 
-const mockLogger = {
-	info: vi.fn(),
-	warn: vi.fn(),
-	error: vi.fn(),
-	debug: vi.fn(),
-	fatal: vi.fn(),
-	trace: vi.fn(),
-	child: vi.fn(),
-};
+const mockLogger: Pick<Logger, "info" | "warn" | "error" | "debug" | "fatal" | "trace" | "child"> =
+	{
+		info: vi.fn(),
+		warn: vi.fn(),
+		error: vi.fn(),
+		debug: vi.fn(),
+		fatal: vi.fn(),
+		trace: vi.fn(),
+		child: vi.fn(),
+	};
 
-function makeRequest(
-	path: string,
-	body: Record<string, unknown>,
-	method = "POST",
-): Request {
+function makeRequest(path: string, body: Record<string, unknown>, method = "POST"): Request {
 	return new Request(`http://localhost${path}`, {
 		method,
 		headers: { "Content-Type": "application/json" },
@@ -48,9 +48,9 @@ describe("Spaces API", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		api = createSpacesApi({
-			spacesService: mockService as any,
-			registry: mockRegistry as any,
-			logger: mockLogger as any,
+			spacesService: mockService as SpacesService,
+			registry: mockRegistry as unknown as ToolRegistry,
+			logger: mockLogger as unknown as Logger,
 			defaultTimeoutMs: 60_000,
 		});
 	});
@@ -68,7 +68,7 @@ describe("Spaces API", () => {
 		});
 
 		it("rejects requests with invalid secret", async () => {
-			mockService.findBySecret.mockResolvedValue(null);
+			vi.mocked(mockService.findBySecret).mockResolvedValue(null);
 
 			const req = makeRequest("/api/viktor-spaces/tools/call", {
 				project_name: "test",
@@ -82,12 +82,12 @@ describe("Spaces API", () => {
 		});
 
 		it("proxies valid tool calls to the registry", async () => {
-			mockService.findBySecret.mockResolvedValue({
+			vi.mocked(mockService.findBySecret).mockResolvedValue({
 				workspaceId: "ws_1",
 				spaceId: "sp_1",
 			});
-			mockRegistry.resolve.mockReturnValue("quick_ai_search");
-			mockRegistry.execute.mockResolvedValue({
+			vi.mocked(mockRegistry.resolve).mockReturnValue("quick_ai_search");
+			vi.mocked(mockRegistry.execute).mockResolvedValue({
 				output: { answer: "42" },
 				durationMs: 100,
 			});
@@ -107,12 +107,12 @@ describe("Spaces API", () => {
 		});
 
 		it("returns tool errors in response body", async () => {
-			mockService.findBySecret.mockResolvedValue({
+			vi.mocked(mockService.findBySecret).mockResolvedValue({
 				workspaceId: "ws_1",
 				spaceId: "sp_1",
 			});
-			mockRegistry.resolve.mockReturnValue("quick_ai_search");
-			mockRegistry.execute.mockResolvedValue({
+			vi.mocked(mockRegistry.resolve).mockReturnValue("quick_ai_search");
+			vi.mocked(mockRegistry.execute).mockResolvedValue({
 				output: null,
 				durationMs: 50,
 				error: "Tool failed",
@@ -132,11 +132,11 @@ describe("Spaces API", () => {
 		});
 
 		it("returns 404 for unknown tools", async () => {
-			mockService.findBySecret.mockResolvedValue({
+			vi.mocked(mockService.findBySecret).mockResolvedValue({
 				workspaceId: "ws_1",
 				spaceId: "sp_1",
 			});
-			mockRegistry.resolve.mockReturnValue(undefined);
+			vi.mocked(mockRegistry.resolve).mockReturnValue(undefined);
 
 			const req = makeRequest("/api/viktor-spaces/tools/call", {
 				project_name: "test",
@@ -166,14 +166,14 @@ describe("Spaces API", () => {
 
 		it("authenticates before sending email", async () => {
 			const apiWithResend = createSpacesApi({
-				spacesService: mockService as any,
-				registry: mockRegistry as any,
-				logger: mockLogger as any,
+				spacesService: mockService as SpacesService,
+				registry: mockRegistry as unknown as ToolRegistry,
+				logger: mockLogger as unknown as Logger,
 				defaultTimeoutMs: 60_000,
 				resendApiKey: "re_test",
 			});
 
-			mockService.findBySecret.mockResolvedValue(null);
+			vi.mocked(mockService.findBySecret).mockResolvedValue(null);
 
 			const req = makeRequest("/api/viktor-spaces/send-email", {
 				project_name: "test",
