@@ -12,42 +12,38 @@ function flushToBetterStack() {
 	timer = null;
 	fetch(`https://${bsHost}`, {
 		method: "POST",
-		headers: {
-			"Content-Type": "application/json",
-			Authorization: `Bearer ${bsToken}`,
-		},
+		headers: { "Content-Type": "application/json", Authorization: `Bearer ${bsToken}` },
 		body: `[${batch.join(",")}]`,
 	}).catch(() => {});
 }
 
 function sendToBetterStack(line: string) {
 	buffer.push(line);
-	if (!timer) {
-		timer = setTimeout(flushToBetterStack, 1000);
-	}
-	if (buffer.length >= 50) {
-		flushToBetterStack();
-	}
+	if (!timer) timer = setTimeout(flushToBetterStack, 1000);
+	if (buffer.length >= 50) flushToBetterStack();
+}
+
+if (bsToken && process.env.NODE_ENV !== "development") {
+	const origWrite = process.stdout.write.bind(process.stdout);
+	process.stdout.write = ((chunk: Uint8Array | string, ...args: unknown[]): boolean => {
+		const str = typeof chunk === "string" ? chunk : Buffer.from(chunk).toString();
+		const trimmed = str.trim();
+		if (trimmed.startsWith("{") && trimmed.includes('"level"')) {
+			sendToBetterStack(trimmed);
+		}
+		return (origWrite as CallableFunction)(chunk, ...args);
+	}) as typeof process.stdout.write;
 }
 
 export function createLogger(name: string, level = "info") {
-	if (process.env.NODE_ENV === "development") {
-		return pino({ name, level, transport: { target: "pino-pretty", options: { colorize: true } } });
-	}
-
-	if (bsToken) {
-		const dest = new (require("node:stream").Writable)({
-			write(chunk: Buffer, _enc: string, cb: () => void) {
-				const line = chunk.toString().trim();
-				process.stdout.write(chunk);
-				if (line) sendToBetterStack(line);
-				cb();
-			},
-		});
-		return pino({ name, level }, dest);
-	}
-
-	return pino({ name, level });
+	return pino({
+		name,
+		level,
+		transport:
+			process.env.NODE_ENV === "development"
+				? { target: "pino-pretty", options: { colorize: true } }
+				: undefined,
+	});
 }
 
 export const logger = createLogger("openviktor", process.env.LOG_LEVEL ?? "info");
