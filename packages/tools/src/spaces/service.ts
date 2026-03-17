@@ -95,14 +95,14 @@ export class SpacesService {
 		name: string,
 		description?: string,
 	): Promise<InitResult> {
-		if (!name || name.length < 2 || name.length > 63 || !NAME_PATTERN.test(name)) {
+		if (!name || name.length < 2 || name.length > 54 || !NAME_PATTERN.test(name)) {
 			return {
 				success: false,
 				projectName: name,
 				sandboxPath: "",
 				convexUrlDev: "",
 				convexUrlProd: "",
-				error: "Invalid project name. Use 2-63 lowercase alphanumeric characters and hyphens. Must start and end with alphanumeric.",
+				error: "Invalid project name. Use 2-54 lowercase alphanumeric characters and hyphens. Must start and end with alphanumeric.",
 			};
 		}
 
