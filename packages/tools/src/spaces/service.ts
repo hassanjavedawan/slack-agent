@@ -1,8 +1,8 @@
 import { execFile } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { cpSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { randomBytes } from "node:crypto";
 import type { PrismaClient } from "@openviktor/db";
 import type { ConvexClient } from "./convex-client.js";
 import type { VercelClient } from "./vercel-client.js";
@@ -90,11 +90,7 @@ export class SpacesService {
 		this.spacesApiUrl = config.spacesApiUrl;
 	}
 
-	async initProject(
-		workspaceId: string,
-		name: string,
-		description?: string,
-	): Promise<InitResult> {
+	async initProject(workspaceId: string, name: string, description?: string): Promise<InitResult> {
 		if (!name || name.length < 2 || name.length > 54 || !NAME_PATTERN.test(name)) {
 			return {
 				success: false,
@@ -102,7 +98,8 @@ export class SpacesService {
 				sandboxPath: "",
 				convexUrlDev: "",
 				convexUrlProd: "",
-				error: "Invalid project name. Use 2-54 lowercase alphanumeric characters and hyphens. Must start and end with alphanumeric.",
+				error:
+					"Invalid project name. Use 2-54 lowercase alphanumeric characters and hyphens. Must start and end with alphanumeric.",
 			};
 		}
 
@@ -179,8 +176,7 @@ export class SpacesService {
 
 		const start = Date.now();
 		const convexEnv = environment === "preview" ? "dev" : "prod";
-		const deployKey =
-			convexEnv === "dev" ? space.convexDevDeployKey : space.convexProdDeployKey;
+		const deployKey = convexEnv === "dev" ? space.convexDevDeployKey : space.convexProdDeployKey;
 
 		try {
 			await this.convex.deploy(space.sandboxPath, convexEnv, deployKey ?? "");
@@ -278,8 +274,7 @@ export class SpacesService {
 		const space = await this.prisma.space.findUnique({
 			where: { workspaceId_name: { workspaceId, name } },
 		});
-		if (!space)
-			return { success: false, data: null, error: `Space not found: ${name}` };
+		if (!space) return { success: false, data: null, error: `Space not found: ${name}` };
 
 		const url = environment === "dev" ? space.convexUrlDev : space.convexUrlProd;
 		if (!url)
@@ -292,10 +287,7 @@ export class SpacesService {
 		return this.convex.query(url, functionName, args);
 	}
 
-	async deleteProject(
-		workspaceId: string,
-		name: string,
-	): Promise<DeleteResultOutput> {
+	async deleteProject(workspaceId: string, name: string): Promise<DeleteResultOutput> {
 		const space = await this.prisma.space.findUnique({
 			where: { workspaceId_name: { workspaceId, name } },
 		});

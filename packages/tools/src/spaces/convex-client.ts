@@ -55,14 +55,12 @@ export class ConvexClient {
 		const devDeployName = String(devDeployment.name);
 		const prodDeployName = String(prodDeployment.name);
 
-		const devKeyResult = await this.api(
-			`/v1/deployments/${devDeployName}/create_deploy_key`,
-			{ name: `${projectName}-dev` },
-		);
-		const prodKeyResult = await this.api(
-			`/v1/deployments/${prodDeployName}/create_deploy_key`,
-			{ name: `${projectName}-prod` },
-		);
+		const devKeyResult = await this.api(`/v1/deployments/${devDeployName}/create_deploy_key`, {
+			name: `${projectName}-dev`,
+		});
+		const prodKeyResult = await this.api(`/v1/deployments/${prodDeployName}/create_deploy_key`, {
+			name: `${projectName}-prod`,
+		});
 
 		return {
 			projectId,
@@ -73,17 +71,10 @@ export class ConvexClient {
 		};
 	}
 
-	async deploy(
-		sandboxPath: string,
-		env: "dev" | "prod",
-		deployKey: string,
-	): Promise<DeployResult> {
+	async deploy(sandboxPath: string, env: "dev" | "prod", deployKey: string): Promise<DeployResult> {
 		await this.exec("bun", ["install"], sandboxPath, "");
 
-		const args =
-			env === "dev"
-				? ["convex", "dev", "--once"]
-				: ["convex", "deploy"];
+		const args = env === "dev" ? ["convex", "dev", "--once"] : ["convex", "deploy"];
 
 		const output = await this.exec("npx", args, sandboxPath, deployKey);
 		return { success: true, output };
@@ -120,10 +111,7 @@ export class ConvexClient {
 		return { success: true, deletedResources: deleted };
 	}
 
-	private async api(
-		path: string,
-		body: Record<string, unknown>,
-	): Promise<Record<string, unknown>> {
+	private async api(path: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
 		const res = await fetch(`${MANAGEMENT_API}${path}`, {
 			method: "POST",
 			headers: {
@@ -141,12 +129,7 @@ export class ConvexClient {
 		return res.json() as Promise<Record<string, unknown>>;
 	}
 
-	private exec(
-		cmd: string,
-		args: string[],
-		cwd: string,
-		deployKey: string,
-	): Promise<string> {
+	private exec(cmd: string, args: string[], cwd: string, deployKey: string): Promise<string> {
 		return new Promise((resolve, reject) => {
 			execFile(
 				cmd,

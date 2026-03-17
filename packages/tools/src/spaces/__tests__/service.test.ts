@@ -8,7 +8,14 @@ vi.mock("node:fs", () => ({
 }));
 
 vi.mock("node:child_process", () => ({
-	execFile: vi.fn((_cmd: string, _args: string[], _opts: unknown, cb: Function) => cb(null, "")),
+	execFile: vi.fn(
+		(
+			_cmd: string,
+			_args: string[],
+			_opts: unknown,
+			cb: (err: Error | null, stdout?: string) => void,
+		) => cb(null, ""),
+	),
 }));
 
 const mockPrisma = {
@@ -45,9 +52,9 @@ describe("SpacesService", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		service = new SpacesService({
-			prisma: mockPrisma as any,
-			convex: mockConvex as any,
-			vercel: mockVercel as any,
+			prisma: mockPrisma as unknown as never,
+			convex: mockConvex as unknown as never,
+			vercel: mockVercel as unknown as never,
 			spacesDir: "/data/workspaces",
 		});
 	});
@@ -194,11 +201,7 @@ describe("SpacesService", () => {
 		const result = await service.queryDatabase("ws1", "test", "tasks:list", {}, "dev");
 		expect(result.success).toBe(true);
 		expect(result.data).toEqual([{ _id: "1" }]);
-		expect(mockConvex.query).toHaveBeenCalledWith(
-			"https://dev.convex.cloud",
-			"tasks:list",
-			{},
-		);
+		expect(mockConvex.query).toHaveBeenCalledWith("https://dev.convex.cloud", "tasks:list", {});
 	});
 
 	it("queries prod database", async () => {
@@ -210,11 +213,7 @@ describe("SpacesService", () => {
 		mockConvex.query.mockResolvedValue({ success: true, data: [] });
 
 		const result = await service.queryDatabase("ws1", "test", "tasks:list", {}, "prod");
-		expect(mockConvex.query).toHaveBeenCalledWith(
-			"https://prod.convex.cloud",
-			"tasks:list",
-			{},
-		);
+		expect(mockConvex.query).toHaveBeenCalledWith("https://prod.convex.cloud", "tasks:list", {});
 		expect(result.success).toBe(true);
 	});
 

@@ -28,11 +28,17 @@ describe("ConvexClient", () => {
 			})
 			.mockResolvedValueOnce({
 				ok: true,
-				json: async () => ({ name: "happy-animal-100", deploymentUrl: "https://happy-animal-100.convex.cloud" }),
+				json: async () => ({
+					name: "happy-animal-100",
+					deploymentUrl: "https://happy-animal-100.convex.cloud",
+				}),
 			})
 			.mockResolvedValueOnce({
 				ok: true,
-				json: async () => ({ name: "happy-animal-101", deploymentUrl: "https://happy-animal-101.convex.cloud" }),
+				json: async () => ({
+					name: "happy-animal-101",
+					deploymentUrl: "https://happy-animal-101.convex.cloud",
+				}),
 			})
 			.mockResolvedValueOnce({
 				ok: true,
@@ -55,18 +61,24 @@ describe("ConvexClient", () => {
 	it("deploys functions using CLI with deploy key", async () => {
 		mockExecFile
 			.mockImplementationOnce((_cmd, _args, _opts, cb) => {
-				(cb as Function)(null, "bun install done");
-				return undefined as any;
+				(cb as (err: Error | null, stdout?: string) => void)(null, "bun install done");
+				return undefined as unknown as ReturnType<typeof execFile>;
 			})
 			.mockImplementationOnce((_cmd, _args, _opts, cb) => {
-				(cb as Function)(null, "Deployed successfully");
-				return undefined as any;
+				(cb as (err: Error | null, stdout?: string) => void)(null, "Deployed successfully");
+				return undefined as unknown as ReturnType<typeof execFile>;
 			});
 
 		const result = await client.deploy("/tmp/test-app", "prod", "prod:key|abc");
 		expect(result.success).toBe(true);
 		expect(mockExecFile).toHaveBeenCalledTimes(2);
-		expect(mockExecFile).toHaveBeenNthCalledWith(1, "bun", ["install"], expect.anything(), expect.any(Function));
+		expect(mockExecFile).toHaveBeenNthCalledWith(
+			1,
+			"bun",
+			["install"],
+			expect.anything(),
+			expect.any(Function),
+		);
 		expect(mockExecFile).toHaveBeenNthCalledWith(
 			2,
 			"npx",
@@ -81,12 +93,12 @@ describe("ConvexClient", () => {
 	it("deploys to dev using dev --once", async () => {
 		mockExecFile
 			.mockImplementationOnce((_cmd, _args, _opts, cb) => {
-				(cb as Function)(null, "bun install done");
-				return undefined as any;
+				(cb as (err: Error | null, stdout?: string) => void)(null, "bun install done");
+				return undefined as unknown as ReturnType<typeof execFile>;
 			})
 			.mockImplementationOnce((_cmd, _args, _opts, cb) => {
-				(cb as Function)(null, "OK");
-				return undefined as any;
+				(cb as (err: Error | null, stdout?: string) => void)(null, "OK");
+				return undefined as unknown as ReturnType<typeof execFile>;
 			});
 
 		await client.deploy("/tmp/test-app", "dev", "dev:key|abc");
@@ -101,15 +113,14 @@ describe("ConvexClient", () => {
 
 	it("queries a deployment database", async () => {
 		mockExecFile.mockImplementationOnce((_cmd, _args, _opts, cb) => {
-			(cb as Function)(null, JSON.stringify([{ _id: "1", title: "test" }]));
-			return undefined as any;
+			(cb as (err: Error | null, stdout?: string) => void)(
+				null,
+				JSON.stringify([{ _id: "1", title: "test" }]),
+			);
+			return undefined as unknown as ReturnType<typeof execFile>;
 		});
 
-		const result = await client.query(
-			"https://happy-animal-100.convex.cloud",
-			"tasks:list",
-			{},
-		);
+		const result = await client.query("https://happy-animal-100.convex.cloud", "tasks:list", {});
 		expect(result.success).toBe(true);
 		expect(result.data).toEqual([{ _id: "1", title: "test" }]);
 	});

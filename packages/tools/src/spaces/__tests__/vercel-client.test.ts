@@ -42,15 +42,27 @@ describe("VercelClient", () => {
 
 	it("deploys to preview using CLI", async () => {
 		mockExecFile.mockImplementationOnce((_cmd, _args, _opts, cb) => {
-			(cb as Function)(null, "https://test-app-abc123.vercel.app\n");
-			return undefined as any;
+			(cb as (err: Error | null, stdout?: string) => void)(
+				null,
+				"https://test-app-abc123.vercel.app\n",
+			);
+			return undefined as unknown as ReturnType<typeof execFile>;
 		});
 
 		const result = await client.deploy("/tmp/test-app", "preview");
 		expect(result.url).toBe("https://test-app-abc123.vercel.app");
 		expect(mockExecFile).toHaveBeenCalledWith(
 			"npx",
-			["vercel", "deploy", "/tmp/test-app/dist", "--yes", "--token", "vercel-token", "--scope", "org_123"],
+			[
+				"vercel",
+				"deploy",
+				"/tmp/test-app/dist",
+				"--yes",
+				"--token",
+				"vercel-token",
+				"--scope",
+				"org_123",
+			],
 			expect.anything(),
 			expect.any(Function),
 		);
@@ -58,15 +70,25 @@ describe("VercelClient", () => {
 
 	it("deploys to production with --prod flag", async () => {
 		mockExecFile.mockImplementationOnce((_cmd, _args, _opts, cb) => {
-			(cb as Function)(null, "https://test-app.vercel.app\n");
-			return undefined as any;
+			(cb as (err: Error | null, stdout?: string) => void)(null, "https://test-app.vercel.app\n");
+			return undefined as unknown as ReturnType<typeof execFile>;
 		});
 
 		const result = await client.deploy("/tmp/test-app", "production");
 		expect(result.url).toBe("https://test-app.vercel.app");
 		expect(mockExecFile).toHaveBeenCalledWith(
 			"npx",
-			["vercel", "deploy", "/tmp/test-app/dist", "--yes", "--token", "vercel-token", "--scope", "org_123", "--prod"],
+			[
+				"vercel",
+				"deploy",
+				"/tmp/test-app/dist",
+				"--yes",
+				"--token",
+				"vercel-token",
+				"--scope",
+				"org_123",
+				"--prod",
+			],
 			expect.anything(),
 			expect.any(Function),
 		);

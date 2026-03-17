@@ -28,7 +28,10 @@ export const deployAppDefinition: LLMToolDefinition = {
 				enum: ["preview", "production"],
 				description: "Target deployment environment",
 			},
-			commit_message: { type: "string", description: "Optional commit message for this deployment" },
+			commit_message: {
+				type: "string",
+				description: "Optional commit message for this deployment",
+			},
 		},
 		required: ["project_name", "environment"],
 	},
@@ -120,23 +123,37 @@ export function createSpacesToolExecutors(service: SpacesService): Record<string
 	return {
 		init_app_project: (args, ctx) =>
 			wrapCall(() =>
-				service.initProject(ctx.workspaceId, args.project_name as string, args.description as string | undefined),
+				service.initProject(
+					ctx.workspaceId,
+					args.project_name as string,
+					args.description as string | undefined,
+				),
 			),
 
 		deploy_app: (args, ctx) =>
 			wrapCall(() =>
-				service.deploy(ctx.workspaceId, args.project_name as string, args.environment as "preview" | "production", args.commit_message as string | undefined),
+				service.deploy(
+					ctx.workspaceId,
+					args.project_name as string,
+					args.environment as "preview" | "production",
+					args.commit_message as string | undefined,
+				),
 			),
 
-		list_apps: (_args, ctx) =>
-			wrapCall(() => service.listSpaces(ctx.workspaceId)),
+		list_apps: (_args, ctx) => wrapCall(() => service.listSpaces(ctx.workspaceId)),
 
 		get_app_status: (args, ctx) =>
 			wrapCall(() => service.getStatus(ctx.workspaceId, args.project_name as string)),
 
 		query_app_database: (args, ctx) =>
 			wrapCall(() =>
-				service.queryDatabase(ctx.workspaceId, args.project_name as string, args.function_name as string, (args.args as Record<string, unknown>) ?? {}, args.environment as "dev" | "prod"),
+				service.queryDatabase(
+					ctx.workspaceId,
+					args.project_name as string,
+					args.function_name as string,
+					(args.args as Record<string, unknown>) ?? {},
+					args.environment as "dev" | "prod",
+				),
 			),
 
 		delete_app_project: (args, ctx) =>

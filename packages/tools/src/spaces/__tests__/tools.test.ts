@@ -99,12 +99,7 @@ describe("createSpacesToolExecutors", () => {
 				ctx,
 			);
 
-			expect(service.deploy).toHaveBeenCalledWith(
-				"ws_test",
-				"my-app",
-				"preview",
-				"feat: update",
-			);
+			expect(service.deploy).toHaveBeenCalledWith("ws_test", "my-app", "preview", "feat: update");
 			expect(result.output).toEqual(expected);
 			expect(result.error).toBeUndefined();
 		});
@@ -124,7 +119,9 @@ describe("createSpacesToolExecutors", () => {
 
 	describe("list_apps", () => {
 		it("calls service.listSpaces and returns result", async () => {
-			const expected = { apps: [{ name: "my-app", status: "ACTIVE", previewUrl: null, productionUrl: null }] };
+			const expected = {
+				apps: [{ name: "my-app", status: "ACTIVE", previewUrl: null, productionUrl: null }],
+			};
 			service.listSpaces.mockResolvedValue(expected);
 
 			const result = await executors.list_apps({}, ctx);

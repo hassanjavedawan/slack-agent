@@ -39,10 +39,7 @@ export class VercelClient {
 		return { projectId: res.id as string, name: res.name as string };
 	}
 
-	async deploy(
-		buildDir: string,
-		environment: "preview" | "production",
-	): Promise<DeployResult> {
+	async deploy(buildDir: string, environment: "preview" | "production"): Promise<DeployResult> {
 		const distDir = `${buildDir}/dist`;
 		const args = [
 			"vercel",
@@ -61,11 +58,7 @@ export class VercelClient {
 		return { deploymentId: "", url };
 	}
 
-	async setDomain(
-		projectId: string,
-		hexId: string,
-		projectName: string,
-	): Promise<string> {
+	async setDomain(projectId: string, hexId: string, projectName: string): Promise<string> {
 		const domain = `${projectName}-${hexId}.${this.domain}`;
 		await this.request("POST", `/v10/projects/${projectId}/domains`, { name: domain });
 		return domain;
@@ -93,9 +86,7 @@ export class VercelClient {
 
 		if (!res.ok) {
 			const text = await res.json().catch(() => ({}));
-			throw new Error(
-				`Vercel API ${method} ${path} failed: ${res.status} ${JSON.stringify(text)}`,
-			);
+			throw new Error(`Vercel API ${method} ${path} failed: ${res.status} ${JSON.stringify(text)}`);
 		}
 
 		return res.json() as Promise<Record<string, unknown>>;
@@ -104,20 +95,15 @@ export class VercelClient {
 	private exec(cmd: string, args: string[], cwd: string): Promise<string> {
 		return new Promise((resolve, reject) => {
 			const env = { ...process.env };
-			delete env.VERCEL_ORG_ID;
-			delete env.VERCEL_PROJECT_ID;
-			execFile(
-				cmd,
-				args,
-				{ cwd, env },
-				(err, stdout, stderr) => {
-					if (err) {
-						const message = stderr?.trim() || err.message;
-						return reject(new Error(message));
-					}
-					resolve(stdout);
-				},
-			);
+			env.VERCEL_ORG_ID = undefined;
+			env.VERCEL_PROJECT_ID = undefined;
+			execFile(cmd, args, { cwd, env }, (err, stdout, stderr) => {
+				if (err) {
+					const message = stderr?.trim() || err.message;
+					return reject(new Error(message));
+				}
+				resolve(stdout);
+			});
 		});
 	}
 }
