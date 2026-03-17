@@ -24,6 +24,12 @@ const PRICING: Record<string, ModelPricing> = {
 		cacheWritePerMTok: 1.25,
 		cacheReadPerMTok: 0.1,
 	},
+	"gemini-3.1-pro": {
+		inputPerMTok: 2,
+		outputPerMTok: 12,
+		cacheWritePerMTok: 0,
+		cacheReadPerMTok: 0,
+	},
 	"gemini-2.5-flash": {
 		inputPerMTok: 0.15,
 		outputPerMTok: 0.6,

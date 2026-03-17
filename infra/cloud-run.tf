@@ -72,7 +72,7 @@ resource "google_cloud_run_v2_service" "bot" {
       }
       env {
         name  = "DEFAULT_MODEL"
-        value = "gemini-2.5-flash"
+        value = "gemini-3.1-pro-preview"
       }
       env {
         name  = "BASE_URL"
