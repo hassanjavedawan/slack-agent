@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Route, Routes, useLocation } from "react-router-dom";
 import { AppLayout } from "./components/layout/app-layout";
 import { capturePageView } from "./lib/posthog";
+import { CompliancePage } from "./pages/compliance";
 import { HealthPage } from "./pages/health";
 import { IntegrationsPage } from "./pages/integrations";
 import { KnowledgePage } from "./pages/knowledge";
@@ -27,6 +28,7 @@ export function App() {
 		<Routes>
 			<Route index element={<LandingPage />} />
 			<Route path="/welcome" element={<LandingPage />} />
+			<Route path="/compliance" element={<CompliancePage />} />
 			<Route element={<AppLayout />}>
 				<Route path="dashboard" element={<HealthPage />} />
 				<Route path="overview" element={<OverviewPage />} />

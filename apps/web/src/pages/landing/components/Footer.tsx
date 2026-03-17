@@ -1,16 +1,16 @@
 import { HumalikeLogo } from "./Navbar";
 
 const productLinks = [
-	{ label: "How it works", href: "/#how-it-works" },
+	{ label: "How it works", href: "#how-it-works" },
 	{ label: "Use Cases", href: "/use-cases" },
-	{ label: "Pricing", href: "/#pricing" },
+	{ label: "Pricing", href: "#pricing" },
 ];
 
 const legalLinks = [
 	{ label: "Terms", href: "/terms-of-service" },
 	{ label: "Privacy", href: "/privacy" },
-	{ label: "ISO 27001", href: "#", external: true },
-	{ label: "SOC 2 Type 2", href: "#", external: true },
+	{ label: "ISO 27001", href: "/compliance" },
+	{ label: "SOC 2 Type 2", href: "/compliance" },
 ];
 
 export default function Footer() {
@@ -110,7 +110,6 @@ export default function Footer() {
 									key={l.label}
 									href={l.href}
 									className="text-[#6B6863] text-sm hover:text-[#111] transition-colors"
-									{...(l.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
 								>
 									{l.label}
 								</a>
