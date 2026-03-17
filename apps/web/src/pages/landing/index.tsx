@@ -7,7 +7,6 @@ import LogosBar from "./components/LogosBar";
 import MarqueeCTA from "./components/MarqueeCTA";
 import Navbar from "./components/Navbar";
 import Pricing from "./components/Pricing";
-import Testimonials from "./components/Testimonials";
 import VideoSection from "./components/VideoSection";
 import WhatViktorDoes from "./components/WhatViktorDoes";
 
@@ -22,7 +21,6 @@ export function LandingPage() {
 			<HowItWorks />
 			<WhatViktorDoes />
 			<Pricing />
-			<Testimonials />
 			<MarqueeCTA />
 			<Footer />
 		</div>
