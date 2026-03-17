@@ -5,7 +5,7 @@ import type { SpacesService } from "./service.js";
 export const initAppProjectDefinition: LLMToolDefinition = {
 	name: "init_app_project",
 	description:
-		"Create a new Viktor Spaces app project. Sets up Convex backend (dev+prod), Vercel frontend, and database record. The app template uses React 19 + Vite with source files in src/ (not app/). Entry point is src/App.tsx, Convex functions go in convex/. IMPORTANT: The template includes convex/viktorApi.ts with a ready-made callTool action for calling Viktor tools. When the app needs AI, search, image generation, or any Viktor capability, import and use the existing callTool action from convex/viktorApi.ts — do NOT write your own fetch logic or hardcode any URLs. Example usage from another action: `await ctx.runAction(api.viktorApi.callTool, { role: 'quick_ai_search', arguments: { search_question: userMessage } })`. The callTool action reads VIKTOR_SPACES_API_URL from .env.local automatically.",
+		"Create a new Viktor Spaces app project. Read the viktor_spaces_dev skill first for the full development workflow. Sets up Convex backend (dev+prod), Vercel frontend, and database record. Template uses React 19 + Vite (src/App.tsx), Convex functions in convex/. CRITICAL: The template includes convex/viktorTools.ts with a callTool action — ALWAYS use it for Viktor API calls (AI, search, images). NEVER write custom fetch logic or hardcode URLs. Usage: `await ctx.runAction(api.viktorTools.callTool, { role: 'quick_ai_search', arguments: { search_question: msg } })`.",
 	input_schema: {
 		type: "object",
 		properties: {
