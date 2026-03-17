@@ -1,6 +1,6 @@
+import { Writable } from "node:stream";
 import { Logtail } from "@logtail/node";
 import pino from "pino";
-import { Writable } from "node:stream";
 
 let logtail: Logtail | undefined;
 
@@ -18,10 +18,10 @@ function createDestination(): pino.DestinationStream | undefined {
 				const parsed = JSON.parse(chunk.toString());
 				const level = pino.levels.labels[parsed.level] ?? "info";
 				const method = level === "fatal" ? "error" : level;
-				if (method === "info") logtail!.info(parsed.msg ?? "", parsed);
-				else if (method === "warn") logtail!.warn(parsed.msg ?? "", parsed);
-				else if (method === "error") logtail!.error(parsed.msg ?? "", parsed);
-				else if (method === "debug") logtail!.debug(parsed.msg ?? "", parsed);
+				if (method === "info") logtail?.info(parsed.msg ?? "", parsed);
+				else if (method === "warn") logtail?.warn(parsed.msg ?? "", parsed);
+				else if (method === "error") logtail?.error(parsed.msg ?? "", parsed);
+				else if (method === "debug") logtail?.debug(parsed.msg ?? "", parsed);
 			} catch {}
 			callback();
 		},
