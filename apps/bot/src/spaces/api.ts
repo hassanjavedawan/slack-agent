@@ -116,7 +116,7 @@ export function createSpacesApi(deps: SpacesApiDeps): {
 				"Content-Type": "application/json",
 			},
 			body: JSON.stringify({
-				from: `${body.project_name}@notifications.${deps.spacesDomain ?? "viktor.space"}`,
+				from: `${body.project_name}@notifications.${deps.spacesDomain ?? "apps.openviktor.com"}`,
 				to: body.to_email,
 				subject: body.subject,
 				html: body.html_content,

@@ -89,7 +89,7 @@ const envSchema = z
 		CONVEX_TEAM_ID: z.string().optional(),
 		VERCEL_TOKEN: z.string().optional(),
 		VERCEL_ORG_ID: z.string().optional(),
-		SPACES_DOMAIN: z.string().default("viktor.space"),
+		SPACES_DOMAIN: z.string().default("apps.openviktor.com"),
 		RESEND_API_KEY: z.string().optional(),
 
 		// Pipedream Connect

@@ -13,6 +13,7 @@ export default defineConfig({
 	server: {
 		proxy: {
 			"/api": "http://localhost:3001",
+			"/slack": "http://localhost:3001",
 		},
 	},
 	build: {
