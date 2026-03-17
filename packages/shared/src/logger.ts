@@ -1,30 +1,47 @@
+import { Logtail } from "@logtail/node";
 import pino from "pino";
+import { Writable } from "node:stream";
 
-function buildTransport(): pino.TransportSingleOptions | pino.TransportMultiOptions | undefined {
-	if (process.env.NODE_ENV === "development") {
-		return { target: "pino-pretty", options: { colorize: true } };
-	}
+let logtail: Logtail | undefined;
 
-	if (process.env.BETTERSTACK_SOURCE_TOKEN) {
-		return {
-			targets: [
-				{ target: "pino/file", options: { destination: 1 } },
-				{
-					target: "@logtail/pino",
-					options: { sourceToken: process.env.BETTERSTACK_SOURCE_TOKEN },
-				},
-			],
-		};
-	}
+if (process.env.BETTERSTACK_SOURCE_TOKEN) {
+	logtail = new Logtail(process.env.BETTERSTACK_SOURCE_TOKEN);
+}
 
-	return undefined;
+function createDestination(): pino.DestinationStream | undefined {
+	if (!logtail) return undefined;
+
+	return new Writable({
+		write(chunk: Buffer, _encoding, callback) {
+			process.stdout.write(chunk);
+			try {
+				const parsed = JSON.parse(chunk.toString());
+				const level = pino.levels.labels[parsed.level] ?? "info";
+				const method = level === "fatal" ? "error" : level;
+				if (method === "info") logtail!.info(parsed.msg ?? "", parsed);
+				else if (method === "warn") logtail!.warn(parsed.msg ?? "", parsed);
+				else if (method === "error") logtail!.error(parsed.msg ?? "", parsed);
+				else if (method === "debug") logtail!.debug(parsed.msg ?? "", parsed);
+			} catch {}
+			callback();
+		},
+	});
 }
 
 export function createLogger(name: string, level = "info") {
+	const dest = createDestination();
+
+	if (dest) {
+		return pino({ name, level }, dest);
+	}
+
 	return pino({
 		name,
 		level,
-		transport: buildTransport(),
+		transport:
+			process.env.NODE_ENV === "development"
+				? { target: "pino-pretty", options: { colorize: true } }
+				: undefined,
 	});
 }
 
