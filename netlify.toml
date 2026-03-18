@@ -1,0 +1,21 @@
+[build]
+  command = "bun install && bun run --filter @openviktor/web build"
+  publish = "apps/web/dist"
+
+[[redirects]]
+  from = "/api/*"
+  to = "http://54.89.43.183:3001/api/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/slack/*"
+  to = "http://54.89.43.183:3001/slack/:splat"
+  status = 200
+  force = true
+
+# SPA fallback - must be last
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
