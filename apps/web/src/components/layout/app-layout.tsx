@@ -59,7 +59,7 @@ export function AppLayout() {
 
 	useEffect(() => {
 		if (error && isAuthError(error)) {
-			navigate("/");
+			navigate("/login");
 		}
 	}, [error, navigate]);
 
@@ -82,12 +82,12 @@ export function AppLayout() {
 		<div className="flex h-screen">
 			<aside className="flex w-60 flex-col border-r border-[#d6eaef] bg-[#f7fbfd]">
 				<a href="/" className="flex h-14 items-center gap-2.5 border-b border-[#d6eaef] px-4">
-					<img src="/openviktor.png" alt="OpenViktor" className="h-7 w-7" />
+					<img src="https://relymer.com/black-logo.png" alt="Relymer" className="w-7" />
 					<span
-						className="text-base font-bold tracking-[0.1em] text-[#111]"
+						className="text-base font-bold tracking-widest text-[#111]"
 						style={{ fontFamily: "'Manrope', sans-serif" }}
 					>
-						OPENVIKTOR
+						Relymer
 					</span>
 				</a>
 				<nav className="flex-1 space-y-0.5 overflow-y-auto p-2">
@@ -112,18 +112,9 @@ export function AppLayout() {
 				</nav>
 				<div className="border-t border-[#d6eaef] px-4 py-3">
 					<div className="flex items-center justify-between">
-						<a
-							href="https://github.com/zggf-zggf/openviktor"
-							target="_blank"
-							rel="noopener noreferrer"
-							className="flex items-center gap-1.5 text-xs text-[#9095a5] hover:text-[#1e6a8a] transition-colors"
-						>
-							<Github className="h-3.5 w-3.5" />
-							<span>GitHub</span>
-							<ExternalLink className="h-2.5 w-2.5" />
-						</a>
+					
 						<a href="/" className="text-xs text-[#9095a5] hover:text-[#1e6a8a] transition-colors">
-							openviktor.com
+							Relymer.com
 						</a>
 					</div>
 				</div>

@@ -16,7 +16,7 @@ export function CompliancePage() {
 				</h1>
 
 				<p className="text-[#6B6863] text-lg leading-relaxed mb-10">
-					We take security seriously. OpenViktor is actively working toward industry-standard
+					We take security seriously. Relymer is actively working toward industry-standard
 					certifications to ensure your data is protected.
 				</p>
 

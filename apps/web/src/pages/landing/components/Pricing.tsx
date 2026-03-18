@@ -75,7 +75,7 @@ export default function Pricing() {
 								style={{ background: "#1e6a8a" }}
 							>
 								<span className="text-white text-xs tracking-widest uppercase font-medium">
-									OpenViktor
+									Relymer
 								</span>
 							</div>
 							<div className="p-3 md:p-5 border-l border-[#E5E2DC]">
@@ -199,7 +199,7 @@ export default function Pricing() {
 
 				<div className="mt-8">
 					<a
-						href="/slack/oauth/install"
+						href="/login"
 						className="inline-flex items-center px-8 py-4 rounded-full text-sm font-medium hover:opacity-80 transition-opacity"
 						style={{ background: "#111", color: "#fff" }}
 					>

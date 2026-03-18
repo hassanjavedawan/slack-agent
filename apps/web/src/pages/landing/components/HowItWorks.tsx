@@ -198,8 +198,8 @@ const steps = [
 			>
 				<div style={{ display: "flex", alignItems: "center", gap: 8 }}>
 					<img
-						src="/openviktor.png"
-						alt="OpenViktor"
+						src="https://relymer.com/black-logo.png"
+						alt="Relymer"
 						style={{
 							width: 22,
 							height: 22,
@@ -218,7 +218,7 @@ const steps = [
 									fontSize: 12,
 								}}
 							>
-								OpenViktor
+								Relymer
 							</span>
 							<span
 								style={{

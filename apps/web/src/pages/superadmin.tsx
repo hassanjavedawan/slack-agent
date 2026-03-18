@@ -155,7 +155,7 @@ export function SuperadminPage() {
 	return (
 		<div className="min-h-screen bg-slate-50">
 			<nav className="border-b border-slate-200 bg-white px-6 h-14 flex items-center">
-				<h1 className="text-sm font-bold tracking-wide text-slate-900">OPENVIKTOR SUPERADMIN</h1>
+				<h1 className="text-sm font-bold tracking-wide text-slate-900">Relymer SUPERADMIN</h1>
 			</nav>
 			<main className="max-w-6xl mx-auto p-6 space-y-6">
 				<div className="grid grid-cols-1 gap-4 sm:grid-cols-3">

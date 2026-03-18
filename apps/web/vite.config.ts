@@ -12,8 +12,8 @@ export default defineConfig({
 	},
 	server: {
 		proxy: {
-			"/api": "http://localhost:3001",
-			"/slack": "http://localhost:3001",
+			"/api": "http://54.89.43.183:3001",
+			"/slack": "http://54.89.43.183:3001",
 		},
 	},
 	build: {

@@ -15,7 +15,7 @@ const ask = (q: string): Promise<string> =>
 	new Promise((res) => rl.question(q, (a) => res(a.trim())));
 
 async function main() {
-	console.log("\n  OpenViktor Setup\n");
+	console.log("\n  Relymer Setup\n");
 	console.log("  This wizard will guide you through first-time setup.\n");
 
 	// Check for existing .env

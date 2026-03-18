@@ -136,7 +136,7 @@ function IdentityPanel() {
 						marginRight: 44,
 					}}
 				>
-					Mail · OpenViktor
+					Mail · Relymer
 				</span>
 			</div>
 
@@ -161,8 +161,8 @@ function IdentityPanel() {
 				</div>
 				<div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
 					<img
-						src="/openviktor.png"
-						alt="OpenViktor"
+						src="https://relymer.com/black-logo.png"
+						alt="Relymer"
 						style={{
 							width: 36,
 							height: 36,
@@ -172,25 +172,7 @@ function IdentityPanel() {
 							background: "#fff",
 						}}
 					/>
-					<div style={{ flex: 1, minWidth: 0 }}>
-						<div
-							style={{
-								display: "flex",
-								alignItems: "baseline",
-								gap: 6,
-								flexWrap: "wrap",
-							}}
-						>
-							<span style={{ fontSize: 13.5, fontWeight: 600, color: "#1D1C1D" }}>OpenViktor</span>
-							<span style={{ fontSize: 12, color: "#A8A49E" }}>&lt;openviktor@soofte.com&gt;</span>
-							<span style={{ fontSize: 11, color: "#A8A49E", marginLeft: "auto" }}>
-								Today, 8:47 AM
-							</span>
-						</div>
-						<div style={{ fontSize: 12, color: "#A8A49E", marginTop: 2 }}>
-							To: david@brightcorp.com
-						</div>
-					</div>
+				
 				</div>
 			</div>
 
@@ -245,9 +227,8 @@ function IdentityPanel() {
 						animationDelay: "2.3s",
 					}}
 				>
-					<div style={{ fontWeight: 600, color: "#1D1C1D" }}>OpenViktor</div>
-					<div style={{ color: "#A8A49E" }}>AI Employee · OpenViktor</div>
-					<div style={{ color: "#1e6a8a" }}>openviktor@soofte.com</div>
+					<div style={{ fontWeight: 600, color: "#1D1C1D" }}>Relymer</div>
+					<div style={{ color: "#A8A49E" }}>AI Employee · Relymer</div>
 				</div>
 			</div>
 			<div
@@ -543,7 +524,7 @@ function SelfDrivenPanel() {
 						marginRight: 44,
 					}}
 				>
-					OpenViktor Task Queue
+					Relymer Task Queue
 				</span>
 			</div>
 			<div
@@ -557,8 +538,8 @@ function SelfDrivenPanel() {
 				}}
 			>
 				<img
-					src="/openviktor.png"
-					alt="OpenViktor"
+					src="https://relymer.com/black-logo.png"
+					alt="Relymer"
 					style={{
 						width: 32,
 						height: 32,
@@ -569,7 +550,7 @@ function SelfDrivenPanel() {
 				/>
 				<div>
 					<div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-						<span style={{ fontSize: 13, fontWeight: 600, color: "#111" }}>OpenViktor</span>
+						<span style={{ fontSize: 13, fontWeight: 600, color: "#111" }}>Relymer</span>
 						<span
 							style={{
 								fontSize: 9,
@@ -789,23 +770,7 @@ export default function Hero() {
 			<div className="max-w-7xl mx-auto" style={{ position: "relative", zIndex: 1 }}>
 				<div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-12 xl:gap-20 items-stretch">
 					<div>
-						<a
-							href="https://github.com/zggf-zggf/openviktor/"
-							target="_blank"
-							rel="noopener noreferrer"
-							className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-medium mb-6 hover:border-[#1e6a8a] hover:text-[#1e6a8a] transition-colors"
-							style={{
-								borderColor: "#d6eaef",
-								color: "#6B6863",
-								background: "#fff",
-							}}
-						>
-							<svg width={13} height={13} viewBox="0 0 24 24" fill="currentColor">
-								<title>GitHub</title>
-								<path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z" />
-							</svg>
-							Open source · Free forever
-						</a>
+			
 
 						<h1
 							className="leading-[1.0] tracking-tight text-[#111] mb-7"
@@ -821,7 +786,7 @@ export default function Hero() {
 						</h1>
 
 						<a
-							href="/slack/oauth/install"
+							href="/login"
 							className="inline-flex items-center px-8 py-3.5 rounded-full text-sm font-medium hover:opacity-80 transition-opacity mb-3 md:mb-9"
 							style={{ background: "#111", color: "#fff" }}
 						>

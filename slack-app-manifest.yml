@@ -1,5 +1,5 @@
 display_information:
-  name: OpenViktor
+  name: Relymer
   description: AI-powered Slack assistant
   background_color: "#1a1a2e"
 
@@ -9,7 +9,7 @@ features:
     messages_tab_enabled: true
     messages_tab_read_only_enabled: false
   bot_user:
-    display_name: OpenViktor
+    display_name: Relymer
     always_online: true
 
 oauth_config:

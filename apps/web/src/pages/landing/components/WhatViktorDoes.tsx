@@ -185,8 +185,8 @@ function SlackVisual() {
 				>
 					<div style={{ display: "flex", gap: 7, alignItems: "flex-start" }}>
 						<img
-							src="/openviktor.png"
-							alt="OpenViktor"
+							src="https://relymer.com/black-logo.png"
+							alt="Relymer"
 							style={{
 								width: 28,
 								height: 28,
@@ -198,7 +198,7 @@ function SlackVisual() {
 						/>
 						<div>
 							<div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-								<span style={{ fontSize: 13, fontWeight: 700, color: "#111" }}>OpenViktor</span>
+								<span style={{ fontSize: 13, fontWeight: 700, color: "#111" }}>Relymer</span>
 								<span
 									style={{
 										fontSize: 9,

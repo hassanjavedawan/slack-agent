@@ -254,6 +254,13 @@ export interface UserInfo {
 	workspaceIds?: string[];
 }
 
+export function login(username: string, password: string): Promise<{ success: boolean }> {
+	return fetchApi("/auth/login", {
+		method: "POST",
+		body: JSON.stringify({ username, password }),
+	});
+}
+
 export function getMe(): Promise<UserInfo> {
 	return fetchApi("/me");
 }
